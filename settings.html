@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Love Galore — Settings</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-app">
+<div class="app-layout">
+  <div id="sidebarContainer"></div>
+  <main class="main-content">
+    <div class="page-header">
+      <h1><i class="fas fa-cog" style="color:var(--red);margin-right:0.5rem"></i>Settings</h1>
+      <p>Personalise your Love Galore experience.</p>
+    </div>
+
+    <!-- Profile -->
+    <div class="settings-section">
+      <h3><i class="fas fa-user-friends"></i> Your Profiles</h3>
+      <div style="margin-bottom:1rem">
+        <img id="couplePhotoPreview" class="couple-photo-preview" src="" alt="" style="display:none">
+        <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap">
+          <label class="btn-secondary" style="cursor:pointer;display:inline-flex;align-items:center;gap:0.5rem">
+            <i class="fas fa-camera"></i> Upload Couple Photo
+            <input type="file" id="couplePhotoInput" accept="image/*" style="display:none" onchange="handleCouplePhoto(this)">
+          </label>
+          <button class="btn-outline-red" onclick="removeCouplePhoto()"><i class="fas fa-times"></i> Remove Photo</button>
+        </div>
+      </div>
+      <div class="settings-grid">
+        <div class="form-group">
+          <label>Your Name</label>
+          <input type="text" class="form-input" id="s-name" placeholder="Your name">
+        </div>
+        <div class="form-group">
+          <label>Partner's Name</label>
+          <input type="text" class="form-input" id="s-spouse" placeholder="Their name">
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" class="form-input" id="s-email" placeholder="your@email.com">
+        </div>
+      </div>
+    </div>
+
+    <!-- Relationship -->
+    <div class="settings-section">
+      <h3><i class="fas fa-calendar-alt"></i> Relationship</h3>
+      <div class="settings-grid">
+        <div class="form-group">
+          <label>Relationship Start Date</label>
+          <input type="date" class="form-input" id="s-startDate">
+          <div class="api-key-note">Used to calculate days together and anniversary countdown on your dashboard.</div>
+        </div>
+      </div>
+      <div id="daysPreview" style="margin-top:0.75rem"></div>
+    </div>
+
+    <!-- AI / API -->
+    <div class="settings-section">
+      <h3><i class="fas fa-robot"></i> AI Date Ideas — Claude API Key</h3>
+      <div class="form-group">
+        <label>Anthropic API Key</label>
+        <input type="password" class="form-input" id="s-apiKey" placeholder="sk-ant-...">
+        <div class="api-key-note">
+          Get a free key at <strong>console.anthropic.com</strong>. When set, the Date Ideas generator uses real Claude AI for personalised, city-specific results instead of templates. Your key is stored locally in your browser only — never sent anywhere except directly to Anthropic.
+        </div>
+      </div>
+    </div>
+
+    <button class="btn-primary" style="max-width:220px;margin-bottom:2rem" onclick="saveAllSettings()">
+      <i class="fas fa-save"></i> &nbsp;Save Settings
+    </button>
+
+    <!-- Export / Import -->
+    <div class="settings-section">
+      <h3><i class="fas fa-database"></i> Backup &amp; Restore</h3>
+      <p style="font-size:0.88rem;color:rgba(255,245,238,0.55);margin-bottom:1.2rem;line-height:1.7">
+        All your data lives in your browser. Export a backup regularly so you don't lose capsules, letters, or photos if your browser storage is cleared.
+      </p>
+      <div class="export-import-row">
+        <button class="btn-primary" style="width:auto" onclick="exportData()">
+          <i class="fas fa-download"></i> &nbsp;Export Backup
+        </button>
+        <label class="btn-secondary" style="cursor:pointer;display:inline-flex;align-items:center;gap:0.5rem">
+          <i class="fas fa-upload"></i> Import Backup
+          <input type="file" accept=".json" style="display:none" onchange="importData(this.files[0])">
+        </label>
+      </div>
+    </div>
+
+    <!-- Danger zone -->
+    <div class="settings-section danger-zone">
+      <h3><i class="fas fa-exclamation-triangle"></i> Danger Zone</h3>
+      <p style="font-size:0.88rem;color:rgba(255,245,238,0.55);margin-bottom:1.2rem">Clearing your data is permanent and cannot be undone. Export a backup first.</p>
+      <button class="btn-danger" onclick="clearAllData()"><i class="fas fa-trash"></i> Clear All Data</button>
+    </div>
+
+  </main>
+</div>
+
+<script src="js/app.js"></script>
+<script>
+  if (!requireAuth()) void 0;
+  renderSidebar('settings');
+
+  const user = getUser();
+  const settings = getSettings();
+
+  // Pre-fill fields
+  document.getElementById('s-name').value      = user.name || '';
+  document.getElementById('s-spouse').value    = user.spouseName || '';
+  document.getElementById('s-email').value     = user.email || '';
+  document.getElementById('s-startDate').value = settings.startDate || '';
+  document.getElementById('s-apiKey').value    = settings.apiKey || '';
+
+  if (settings.couplePhoto) {
+    const img = document.getElementById('couplePhotoPreview');
+    img.src = settings.couplePhoto; img.style.display = 'block';
+  }
+
+  updateDaysPreview();
+
+  document.getElementById('s-startDate').addEventListener('change', updateDaysPreview);
+
+  function updateDaysPreview() {
+    const d = document.getElementById('s-startDate').value;
+    const el = document.getElementById('daysPreview');
+    if (!d) { el.innerHTML = ''; return; }
+    const days = Math.max(0, Math.floor((new Date() - new Date(d)) / 86400000));
+    const ann  = getNextAnniversary();
+    el.innerHTML = `<div class="ann-badge" style="margin-right:0.75rem"><i class="fas fa-heart"></i> ${days.toLocaleString()} days together</div>${ann ? `<div class="ann-badge"><i class="fas fa-calendar-alt"></i> Anniversary in ${ann.days} day${ann.days!==1?'s':''}</div>` : ''}`;
+  }
+
+  async function handleCouplePhoto(input) {
+    if (!input.files[0]) return;
+    const src = await compressImage(input.files[0], 400, 0.75);
+    const img = document.getElementById('couplePhotoPreview');
+    img.src = src; img.style.display = 'block';
+    const s = getSettings(); s.couplePhoto = src; saveSettings(s);
+    toast('Couple photo updated ♥', 'success');
+  }
+
+  function removeCouplePhoto() {
+    document.getElementById('couplePhotoPreview').style.display = 'none';
+    const s = getSettings(); s.couplePhoto = ''; saveSettings(s);
+    toast('Photo removed', 'info');
+  }
+
+  function saveAllSettings() {
+    const name   = document.getElementById('s-name').value.trim();
+    const spouse = document.getElementById('s-spouse').value.trim();
+    const email  = document.getElementById('s-email').value.trim();
+    if (!name || !spouse) { toast('Names cannot be empty', 'error'); return; }
+
+    const updatedUser = { ...getUser(), name, spouseName: spouse, email };
+    store.set('lg_user', updatedUser);
+    store.set('lg_user_db_' + email, { ...updatedUser, password: getUser().password });
+
+    const s = getSettings();
+    s.startDate = document.getElementById('s-startDate').value;
+    s.apiKey    = document.getElementById('s-apiKey').value.trim();
+    saveSettings(s);
+    toast('Settings saved ♥', 'success');
+    setTimeout(() => renderSidebar('settings'), 300);
+  }
+
+  function clearAllData() {
+    if (!confirm('This will permanently delete ALL your data — capsules, letters, photos, story. Are you sure?')) return;
+    if (!confirm('Last chance — this CANNOT be undone. Continue?')) return;
+    Object.keys(localStorage).filter(k => k.startsWith('lg_')).forEach(k => localStorage.removeItem(k));
+    toast('All data cleared', 'info');
+    setTimeout(() => window.location.href = 'index.html', 1200);
+  }
+</script>
+</body>
+</html>

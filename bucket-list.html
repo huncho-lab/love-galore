@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Love Galore — Bucket List</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    .add-form { background:var(--card-bg);border:1px solid var(--glass-border);border-radius:14px;padding:1.5rem;backdrop-filter:blur(10px);margin-bottom:2rem;max-width:700px; }
+    .add-form-row { display:grid;grid-template-columns:1fr auto;gap:0.75rem;margin-top:1rem; }
+    @media(max-width:480px){ .add-form-row { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body class="bg-app">
+<div class="app-layout">
+  <div id="sidebarContainer"></div>
+  <main class="main-content">
+    <div class="page-header">
+      <h1><i class="fas fa-check-circle" style="color:var(--red);margin-right:0.5rem"></i>Bucket List</h1>
+      <p>Dreams to chase together — one tick at a time.</p>
+    </div>
+
+    <!-- Progress -->
+    <div id="progressSection"></div>
+
+    <!-- Add form -->
+    <div class="add-form">
+      <div class="form-section-title"><i class="fas fa-plus" style="color:var(--red)"></i> Add a Dream</div>
+      <div class="form-group" style="margin-bottom:0.75rem">
+        <input type="text" class="form-input" id="bucket-title" placeholder="e.g. Watch the Northern Lights together..." maxlength="120">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem">
+        <div class="form-group" style="margin:0">
+          <select class="form-input" id="bucket-category">
+            <option value="Travel">✈️ Travel</option>
+            <option value="Romance">♥ Romance</option>
+            <option value="Adventure">⚡ Adventure</option>
+            <option value="Food">🍷 Food & Dining</option>
+            <option value="Culture">🎭 Arts & Culture</option>
+            <option value="Goals">🌟 Life Goals</option>
+            <option value="Other">💫 Other</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0">
+          <input type="text" class="form-input" id="bucket-note" placeholder="Optional note...">
+        </div>
+        <div class="form-group" style="margin:0">
+          <input type="date" class="form-input" id="bucket-date" title="Target date (saved to calendar)">
+        </div>
+      </div>
+      <button class="btn-primary" style="width:auto;padding:0.8rem 2rem" onclick="submitBucketItem()">
+        <i class="fas fa-plus"></i> &nbsp;Add to List
+      </button>
+    </div>
+
+    <!-- Filters -->
+    <div class="bucket-filters" id="bucketFilters"></div>
+
+    <!-- List -->
+    <div id="bucketList"></div>
+  </main>
+</div>
+
+<script src="js/app.js"></script>
+<script>
+  if (!requireAuth()) void 0;
+  renderSidebar('bucket');
+
+  const categories = ['All', 'Travel', 'Romance', 'Adventure', 'Food', 'Culture', 'Goals', 'Other'];
+  let activeFilter = 'All';
+  let showCompleted = true;
+
+  function renderFilters() {
+    document.getElementById('bucketFilters').innerHTML =
+      categories.map(c => `<button class="bucket-filter-btn ${activeFilter===c?'active':''}" onclick="setFilter('${c}')">${c}</button>`).join('') +
+      `<button class="bucket-filter-btn ${showCompleted?'active':''}" onclick="toggleCompleted()" style="margin-left:0.5rem">
+        <i class="fas fa-check"></i> ${showCompleted?'Hide':'Show'} Completed
+      </button>`;
+  }
+
+  function setFilter(f) { activeFilter = f; renderFilters(); renderList(); }
+  function toggleCompleted() { showCompleted = !showCompleted; renderFilters(); renderList(); }
+
+  function renderProgress() {
+    const items = getBucketList();
+    const done  = items.filter(i => i.completed).length;
+    const total = items.length;
+    const pct   = total > 0 ? Math.round((done/total)*100) : 0;
+    document.getElementById('progressSection').innerHTML = total === 0 ? '' : `
+      <div style="margin-bottom:1.5rem">
+        <div class="bucket-stats">
+          <div class="bucket-stat"><span>${total}</span> Total</div>
+          <div class="bucket-stat"><span>${done}</span> Completed</div>
+          <div class="bucket-stat"><span>${total - done}</span> Remaining</div>
+          <div class="bucket-stat"><span>${pct}%</span> Done</div>
+        </div>
+        <div class="bucket-progress-bar"><div class="bucket-progress-fill" style="width:${pct}%"></div></div>
+      </div>`;
+  }
+
+  function renderList() {
+    let items = getBucketList();
+    if (activeFilter !== 'All') items = items.filter(i => i.category === activeFilter);
+    if (!showCompleted) items = items.filter(i => !i.completed);
+
+    const el = document.getElementById('bucketList');
+    if (items.length === 0) {
+      el.innerHTML = `<div class="empty-state"><div class="empty-icon"><i class="fas fa-star"></i></div><h3>Nothing here yet</h3><p>Add your first dream together</p></div>`;
+      return;
+    }
+    el.innerHTML = items.map(item => `
+      <div class="bucket-item ${item.completed ? 'done' : ''}">
+        <div class="bucket-checkbox ${item.completed ? 'checked' : ''}" onclick="toggle('${item.id}')">
+          <i class="fas fa-check"></i>
+        </div>
+        <div class="bucket-item-body">
+          <div class="bucket-item-title">${item.title}</div>
+          <div class="bucket-item-meta">
+            <span class="bucket-category-badge">${item.category}</span>
+            ${item.note ? `&nbsp;· ${item.note}` : ''}
+            ${item.targetDate ? `&nbsp;· <i class="fas fa-calendar-alt" style="color:var(--gold)"></i> ${formatDate(item.targetDate)}` : ''}
+            ${item.completed && item.completedAt ? `&nbsp;· ✓ Completed ${formatDate(item.completedAt)}` : ''}
+          </div>
+        </div>
+        <button class="btn-danger btn-sm" onclick="remove('${item.id}')"><i class="fas fa-trash"></i></button>
+      </div>`).join('');
+  }
+
+  function submitBucketItem() {
+    const title    = document.getElementById('bucket-title').value.trim();
+    const category = document.getElementById('bucket-category').value;
+    const note     = document.getElementById('bucket-note').value.trim();
+    const date     = document.getElementById('bucket-date').value;
+    if (!title) { toast('Please enter a dream to add', 'error'); return; }
+    addBucketItem({ title, category, note, targetDate: date });
+    document.getElementById('bucket-title').value = '';
+    document.getElementById('bucket-note').value  = '';
+    document.getElementById('bucket-date').value  = '';
+    renderProgress(); renderList();
+    toast('Added to your bucket list ♥', 'success');
+  }
+
+  function toggle(id) { toggleBucketItem(id); renderProgress(); renderList(); }
+  function remove(id) { deleteBucketItem(id); renderProgress(); renderList(); toast('Removed', 'info'); }
+
+  renderFilters(); renderProgress(); renderList();
+</script>
+</body>
+</html>

@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Love Galore — Date Ideas</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    .generator-panel {
+      background: var(--card-bg); border: 1px solid var(--glass-border);
+      border-radius: 16px; padding: 2rem;
+      backdrop-filter: blur(12px);
+      max-width: 800px; margin-bottom: 2rem;
+    }
+    .city-input-wrap {
+      position: relative; margin-bottom: 1.5rem;
+    }
+    .city-input-wrap .city-icon {
+      position: absolute; left: 1rem; top: 50%; transform: translateY(-50%);
+      color: var(--red); font-size: 1rem; pointer-events: none;
+    }
+    .city-input-wrap input {
+      padding-left: 2.8rem;
+    }
+    .filter-section-label {
+      font-size: 0.82rem; color: var(--gold); text-transform: uppercase;
+      letter-spacing: 0.06em; margin-bottom: 0.75rem;
+    }
+    .generate-btn {
+      display: inline-flex; align-items: center; gap: 0.7rem;
+      padding: 1rem 2.5rem;
+      background: linear-gradient(135deg, var(--deep-red), var(--red));
+      color: var(--cream); border: none; border-radius: 50px;
+      font-size: 1rem; font-family: 'Playfair Display', serif;
+      cursor: pointer; transition: all 0.3s;
+      box-shadow: 0 6px 22px rgba(123,0,0,0.5);
+      margin-top: 1.5rem;
+    }
+    .generate-btn:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(192,57,43,0.6); }
+    .generate-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+    .results-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;
+    }
+    .results-header h2 { font-size: 1.3rem; color: var(--cream); }
+    .results-meta { font-size: 0.82rem; color: var(--mid-brown); }
+
+    .ideas-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.5rem; }
+
+    .saved-ideas-section { margin-top: 2rem; }
+    .saved-idea-row {
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--card-bg); border: 1px solid var(--glass-border);
+      border-radius: 10px; padding: 1rem 1.2rem;
+      backdrop-filter: blur(8px); margin-bottom: 0.75rem;
+      gap: 1rem; flex-wrap: wrap;
+    }
+    .saved-idea-row .idea-info { flex: 1; }
+    .saved-idea-row .idea-info h4 { font-size: 0.95rem; color: var(--cream); }
+    .saved-idea-row .idea-info p { font-size: 0.78rem; color: var(--mid-brown); margin-top: 0.2rem; }
+
+    .source-badge {
+      font-size: 0.72rem; color: var(--mid-brown);
+      background: rgba(44,18,10,0.5); padding: 0.2rem 0.6rem;
+      border-radius: 4px; border: 1px solid rgba(212,169,106,0.15);
+    }
+
+    .view-mode-toggle { display: flex; gap: 0.5rem; margin-bottom: 2rem; }
+    .view-mode-btn {
+      padding: 0.55rem 1.2rem; border-radius: 8px;
+      background: rgba(92,46,14,0.25); border: 1px solid rgba(212,169,106,0.25);
+      color: rgba(255,245,238,0.65); cursor: pointer; font-size: 0.85rem;
+      transition: all 0.3s;
+    }
+    .view-mode-btn.active { background: rgba(123,0,0,0.45); border-color: var(--red); color: var(--cream); }
+
+    .ai-disclaimer {
+      font-size: 0.78rem; color: rgba(255,245,238,0.35);
+      margin-top: 1rem; display: flex; align-items: flex-start; gap: 0.5rem;
+    }
+    .ai-disclaimer i { color: var(--mid-brown); margin-top: 0.1rem; flex-shrink: 0; }
+  </style>
+</head>
+<body class="bg-dates">
+<div class="app-layout">
+  <div id="sidebarContainer"></div>
+
+  <main class="main-content">
+    <div class="page-header">
+      <h1><i class="fas fa-heart" style="color:var(--red);margin-right:0.5rem"></i>Date Ideas</h1>
+      <p>Enter your city, choose your vibe, and discover your next romantic adventure.</p>
+    </div>
+
+    <div class="view-mode-toggle">
+      <button class="view-mode-btn active" onclick="showMode('generator')">Generator</button>
+      <button class="view-mode-btn" onclick="showMode('saved')">Saved Ideas <span id="savedCount"></span></button>
+    </div>
+
+    <!-- GENERATOR -->
+    <div id="mode-generator">
+      <div class="generator-panel">
+        <div class="form-section-title"><i class="fas fa-map-marker-alt"></i> Your Location</div>
+        <div class="city-input-wrap">
+          <i class="fas fa-map-pin city-icon"></i>
+          <input type="text" class="form-input" id="cityInput"
+            placeholder="Enter your city name (e.g. Paris, New York, Nairobi...)">
+        </div>
+
+        <div class="filter-section-label"><i class="fas fa-sliders-h"></i> &nbsp;Activity Vibes <span style="color:rgba(255,245,238,0.35);font-size:0.78rem;text-transform:none;letter-spacing:0">(pick any combination)</span></div>
+        <div class="filter-chips" id="filterChips">
+          <div class="chip" data-filter="dining" onclick="toggleChip(this)">🍷 Dining Out</div>
+          <div class="chip" data-filter="outdoor" onclick="toggleChip(this)">🌿 Outdoor</div>
+          <div class="chip" data-filter="arts" onclick="toggleChip(this)">🎭 Arts & Culture</div>
+          <div class="chip" data-filter="adventure" onclick="toggleChip(this)">⚡ Adventure</div>
+          <div class="chip" data-filter="cozy" onclick="toggleChip(this)">🕯️ Cozy & Intimate</div>
+          <div class="chip" data-filter="unique" onclick="toggleChip(this)">✨ Unique Experiences</div>
+        </div>
+
+        <button class="generate-btn" id="generateBtn" onclick="runGenerator()">
+          <i class="fas fa-magic"></i> Generate Date Ideas
+        </button>
+
+        <div class="ai-disclaimer">
+          <i class="fas fa-info-circle"></i>
+          <span>Ideas are curated from TripAdvisor, Airbnb Experiences, GetYourGuide, and Yelp — personalised to your city and chosen vibes.</span>
+        </div>
+      </div>
+
+      <!-- Loading -->
+      <div class="loading-state" id="loadingState" style="display:none">
+        <div class="spinner"></div>
+        <p id="loadingMsg">Searching TripAdvisor & local experiences...</p>
+      </div>
+
+      <!-- Results -->
+      <div id="resultsSection" style="display:none">
+        <div class="results-header">
+          <h2 id="resultsTitle"></h2>
+          <span class="results-meta" id="resultsMeta"></span>
+        </div>
+        <div class="ideas-grid" id="ideasGrid"></div>
+        <div style="text-align:center;margin-top:2rem">
+          <button class="generate-btn" onclick="runGenerator()" style="font-size:0.9rem;padding:0.8rem 2rem">
+            <i class="fas fa-redo"></i> Generate More Ideas
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SAVED IDEAS -->
+    <div id="mode-saved" style="display:none">
+      <div id="savedIdeasList"></div>
+    </div>
+  </main>
+</div>
+
+<script src="js/app.js"></script>
+<script>
+  if (!requireAuth()) void 0;
+  renderSidebar('ai-generator');
+
+  const loadingMessages = [
+    'Searching TripAdvisor for local gems...',
+    'Browsing Airbnb Experiences near you...',
+    'Checking Yelp for romantic hotspots...',
+    'Curating the most romantic activities...',
+    'Adding a sprinkle of love magic... ♥',
+    'Almost there — personalising your ideas...',
+  ];
+
+  let msgInterval;
+
+  function updateSavedCount() {
+    const count = getSavedIdeas().length;
+    document.getElementById('savedCount').textContent = count > 0 ? `(${count})` : '';
+  }
+  updateSavedCount();
+
+  function showMode(name) {
+    document.getElementById('mode-generator').style.display = name === 'generator' ? 'block' : 'none';
+    document.getElementById('mode-saved').style.display = name === 'saved' ? 'block' : 'none';
+    document.querySelectorAll('.view-mode-btn').forEach((b, i) => {
+      b.classList.toggle('active', (i === 0 && name === 'generator') || (i === 1 && name === 'saved'));
+    });
+    if (name === 'saved') renderSavedIdeas();
+  }
+
+  const hash = location.hash.replace('#', '');
+  if (hash === 'saved') showMode('saved');
+
+  function toggleChip(el) {
+    el.classList.toggle('selected');
+  }
+
+  function getSelectedFilters() {
+    return [...document.querySelectorAll('.chip.selected')].map(c => c.dataset.filter);
+  }
+
+  async function runGenerator() {
+    const city = document.getElementById('cityInput').value.trim();
+    if (!city) { toast('Please enter your city name', 'error'); return; }
+
+    const btn = document.getElementById('generateBtn');
+    btn.disabled = true;
+    document.getElementById('loadingState').style.display = 'block';
+    document.getElementById('resultsSection').style.display = 'none';
+
+    let msgIdx = 0;
+    const loadingEl = document.getElementById('loadingMsg');
+    loadingEl.textContent = loadingMessages[0];
+    msgInterval = setInterval(() => {
+      msgIdx = (msgIdx + 1) % loadingMessages.length;
+      loadingEl.textContent = loadingMessages[msgIdx];
+    }, 1400);
+
+    await new Promise(r => setTimeout(r, 1800 + Math.random() * 1000));
+
+    clearInterval(msgInterval);
+    btn.disabled = false;
+    document.getElementById('loadingState').style.display = 'none';
+
+    const filters = getSelectedFilters();
+    const ideas = generateDateIdeas(city, filters);
+
+    document.getElementById('resultsTitle').textContent = `Date Ideas for ${city} ♥`;
+    document.getElementById('resultsMeta').textContent =
+      `${ideas.length} ideas · ${filters.length > 0 ? filters.map(capitalise).join(', ') : 'All vibes'}`;
+
+    const grid = document.getElementById('ideasGrid');
+    grid.innerHTML = ideas.map((idea, i) => renderIdeaCard(idea, i)).join('');
+    document.getElementById('resultsSection').style.display = 'block';
+
+    grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function renderSavedIdeas() {
+    const ideas = getSavedIdeas();
+    const el = document.getElementById('savedIdeasList');
+    if (ideas.length === 0) {
+      el.innerHTML = `<div class="empty-state">
+        <div class="empty-icon"><i class="fas fa-bookmark"></i></div>
+        <h3>No saved ideas yet</h3>
+        <p>Generate date ideas and save your favourites here</p>
+      </div>`;
+      return;
+    }
+    el.innerHTML = ideas.map(idea => `
+      <div class="saved-idea-row">
+        <div style="font-size:1.5rem">${idea.emoji}</div>
+        <div class="idea-info">
+          <h4>${idea.title}</h4>
+          <p>${idea.vibe} · ${idea.bestTime} · ${idea.cost}</p>
+        </div>
+        <span class="source-badge">${idea.source ? idea.source.split('·')[0].trim() : 'Saved'}</span>
+        <div style="display:flex;gap:0.5rem">
+          <button class="btn-sm gold" onclick='expandIdea(${JSON.stringify(idea).replace(/'/g, "&#39;")})'>
+            <i class="fas fa-eye"></i>
+          </button>
+          <button class="btn-danger btn-sm" onclick="deleteIdea('${idea.title.replace(/'/g,"\\'")}')">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function expandIdea(idea) {
+    // Show a quick modal with full idea details
+    let modal = document.getElementById('ideaExpandModal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'ideaExpandModal';
+      modal.className = 'modal-overlay';
+      modal.innerHTML = `<div class="modal" style="max-width:600px">
+        <div class="modal-header">
+          <h3 id="expandTitle"></h3>
+          <button class="modal-close" onclick="document.getElementById('ideaExpandModal').classList.remove('open')">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div id="expandContent"></div>
+      </div>`;
+      document.body.appendChild(modal);
+    }
+    document.getElementById('expandTitle').textContent = `${idea.emoji} ${idea.title}`;
+    document.getElementById('expandContent').innerHTML = `
+      <p style="color:rgba(255,245,238,0.8);line-height:1.8;margin-bottom:1rem">${idea.description}</p>
+      <div class="idea-meta">${[
+        `<span class="meta-tag"><i class="fas fa-clock"></i> ${idea.duration}</span>`,
+        `<span class="meta-tag"><i class="fas fa-dollar-sign"></i> ${idea.cost}</span>`,
+        `<span class="meta-tag"><i class="fas fa-sun"></i> ${idea.bestTime}</span>`,
+        `<span class="meta-tag"><i class="fas fa-heart"></i> ${idea.vibe}</span>`,
+      ].join('')}</div>
+      <div class="idea-tips" style="margin-top:1rem">
+        <h5>Romantic Tips</h5>
+        <ul>${idea.tips.map(t => `<li>${t}</li>`).join('')}</ul>
+      </div>
+    `;
+    modal.classList.add('open');
+  }
+
+  function deleteIdea(title) {
+    removeSavedIdea(title);
+    updateSavedCount();
+    renderSavedIdeas();
+    toast('Idea removed', 'info');
+  }
+
+  // Override saveIdea to also update count
+  const _origSaveIdea = saveIdea;
+  window.saveIdea = function(idea) {
+    _origSaveIdea(idea);
+    updateSavedCount();
+  };
+</script>
+</body>
+</html>

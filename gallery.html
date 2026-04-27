@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Love Galore — Our Gallery</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    /* ─── Top back bar ─── */
+    .top-nav {
+      display: flex; align-items: center; gap: 1rem;
+      margin-bottom: 1.5rem; flex-wrap: wrap;
+    }
+    .back-btn {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      padding: 0.55rem 1.2rem;
+      background: rgba(92,46,14,0.4); border: 1px solid rgba(212,169,106,0.3);
+      border-radius: 8px; color: var(--gold); font-size: 0.88rem;
+      cursor: pointer; transition: all 0.25s; text-decoration: none;
+    }
+    .back-btn:hover { background: rgba(123,0,0,0.45); border-color: var(--red); color: var(--cream); }
+
+    /* ─── Upload Zone ─── */
+    .upload-zone {
+      border: 2px dashed rgba(212,169,106,0.35);
+      border-radius: 16px; padding: 2.5rem 2rem;
+      text-align: center; cursor: pointer;
+      transition: all 0.3s; background: rgba(92,46,14,0.12);
+      margin-bottom: 1.5rem; position: relative;
+    }
+    .upload-zone:hover, .upload-zone.drag-over {
+      border-color: var(--red); background: rgba(123,0,0,0.15);
+    }
+    .upload-zone input[type="file"] {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      opacity: 0; cursor: pointer; z-index: 2;
+    }
+    .upload-icon { font-size: 2.8rem; color: var(--mid-brown); margin-bottom: 0.6rem; }
+    .upload-zone h3 { font-size: 1rem; color: var(--cream); margin-bottom: 0.3rem; }
+    .upload-zone p { font-size: 0.82rem; color: rgba(255,245,238,0.45); }
+
+    /* ─── Progress ─── */
+    .upload-progress {
+      background: rgba(44,18,10,0.8); border: 1px solid rgba(212,169,106,0.2);
+      border-radius: 10px; padding: 0.9rem 1.2rem; margin-bottom: 1rem; display: none;
+    }
+    .progress-bar-track { background: rgba(92,46,14,0.3); border-radius: 4px; height: 5px; margin-top: 0.5rem; }
+    .progress-bar-fill { height: 5px; border-radius: 4px; background: linear-gradient(90deg, var(--deep-red), var(--red)); transition: width 0.3s; width: 0%; }
+
+    /* ─── Toolbar ─── */
+    .gallery-toolbar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 1.2rem; flex-wrap: wrap; gap: 0.75rem;
+    }
+    .gallery-count { font-size: 0.85rem; color: var(--mid-brown); }
+    .sort-select {
+      background: rgba(92,46,14,0.3); border: 1px solid rgba(212,169,106,0.3);
+      border-radius: 8px; padding: 0.42rem 0.9rem; color: var(--cream); font-size: 0.85rem; cursor: pointer;
+    }
+    .sort-select option { background: var(--deep-brown); }
+
+    /* ─── Gallery Grid ─── */
+    .gallery-grid { columns: 3 220px; column-gap: 1rem; }
+    .gallery-item {
+      break-inside: avoid; margin-bottom: 1rem; position: relative;
+      border-radius: 12px; overflow: hidden; cursor: pointer;
+      background: rgba(44,18,10,0.6); border: 1px solid rgba(212,169,106,0.12);
+      transition: transform 0.3s, box-shadow 0.3s;
+      animation: fadeIn 0.45s ease both;
+    }
+    .gallery-item:hover { transform: translateY(-4px); box-shadow: 0 12px 36px rgba(0,0,0,0.6); }
+    .gallery-item img { width: 100%; display: block; object-fit: cover; transition: transform 0.35s; }
+    .gallery-item:hover img { transform: scale(1.04); }
+
+    .item-overlay {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: linear-gradient(to top, rgba(20,6,3,0.93), transparent);
+      padding: 2.5rem 0.85rem 0.75rem;
+      transform: translateY(100%); transition: transform 0.3s;
+    }
+    .gallery-item:hover .item-overlay { transform: translateY(0); }
+    .item-caption { font-size: 0.82rem; color: var(--cream); line-height: 1.4; word-break: break-word; }
+    .item-meta { font-size: 0.72rem; color: var(--mid-brown); margin-top: 0.25rem; }
+
+    .item-actions {
+      position: absolute; top: 0.5rem; right: 0.5rem;
+      display: flex; gap: 0.35rem; opacity: 0; transition: opacity 0.3s;
+    }
+    .gallery-item:hover .item-actions { opacity: 1; }
+    .act-btn {
+      width: 28px; height: 28px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.72rem; cursor: pointer; border: none; transition: transform 0.2s;
+    }
+    .act-btn:hover { transform: scale(1.15); }
+    .act-edit { background: rgba(92,46,14,0.9); color: var(--gold); }
+    .act-del  { background: rgba(123,0,0,0.9); color: var(--cream); }
+
+    /* ─── Lightbox ─── */
+    .lightbox {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.94); z-index: 600;
+      align-items: center; justify-content: center; flex-direction: column;
+    }
+    .lightbox.open { display: flex; animation: fadeIn 0.2s ease; }
+    .lightbox img {
+      max-width: 90vw; max-height: 78vh; border-radius: 10px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.8); display: block;
+    }
+    .lb-close {
+      position: fixed; top: 1.2rem; right: 1.2rem;
+      background: rgba(123,0,0,0.85); color: var(--cream);
+      border: none; border-radius: 50%; width: 40px; height: 40px;
+      font-size: 1rem; cursor: pointer; z-index: 10;
+      display: flex; align-items: center; justify-content: center; transition: background 0.2s;
+    }
+    .lb-close:hover { background: var(--red); }
+    .lb-nav {
+      position: fixed; top: 50%; transform: translateY(-50%);
+      background: rgba(20,6,3,0.75); color: var(--cream);
+      border: 1px solid rgba(212,169,106,0.2); border-radius: 50%;
+      width: 44px; height: 44px; font-size: 1rem;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s; z-index: 10;
+    }
+    .lb-nav:hover { background: rgba(123,0,0,0.75); }
+    .lb-prev { left: 0.8rem; }
+    .lb-next { right: 0.8rem; }
+    .lb-caption { margin-top: 0.85rem; font-size: 0.92rem; color: var(--cream); text-align: center; max-width: 580px; line-height: 1.6; }
+    .lb-counter { font-size: 0.75rem; color: var(--mid-brown); margin-top: 0.35rem; }
+
+    /* ─── Caption modal ─── */
+    .caption-modal { max-width: 400px; }
+  </style>
+</head>
+<body class="bg-story">
+<div class="app-layout">
+  <div id="sidebarContainer"></div>
+
+  <main class="main-content">
+    <!-- Back navigation -->
+    <div class="top-nav">
+      <a href="dashboard.html" class="back-btn"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
+      <a href="our-story.html" class="back-btn"><i class="fas fa-book-open"></i> Our Story</a>
+      <a href="time-capsules.html" class="back-btn"><i class="fas fa-box-open"></i> Capsules</a>
+      <a href="date-ideas.html" class="back-btn"><i class="fas fa-heart"></i> Date Ideas</a>
+    </div>
+
+    <div class="page-header">
+      <h1><i class="fas fa-camera-retro" style="color:var(--red);margin-right:0.5rem"></i>Our Gallery</h1>
+      <p>Every photo tells a chapter of your love story.</p>
+    </div>
+
+    <!-- Upload zone -->
+    <div class="upload-zone" id="uploadZone">
+      <input type="file" id="fileInput" accept="image/*" multiple onchange="handleFiles(this.files)">
+      <div class="upload-icon"><i class="fas fa-images"></i></div>
+      <h3>Drop photos here or click to upload</h3>
+      <p>JPEG · PNG · WEBP &nbsp;·&nbsp; Multiple files at once</p>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="upload-progress" id="uploadProgress">
+      <div style="display:flex;justify-content:space-between;font-size:0.83rem">
+        <span style="color:var(--cream)" id="progressLabel">Uploading...</span>
+        <span style="color:var(--gold)" id="progressPct">0%</span>
+      </div>
+      <div class="progress-bar-track"><div class="progress-bar-fill" id="progressFill"></div></div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="gallery-toolbar">
+      <span class="gallery-count" id="galleryCount"></span>
+      <select class="sort-select" id="sortSelect" onchange="renderGallery()">
+        <option value="newest">Newest First</option>
+        <option value="oldest">Oldest First</option>
+      </select>
+    </div>
+
+    <!-- Grid -->
+    <div class="gallery-grid" id="galleryGrid"></div>
+    <div id="galleryEmpty" class="empty-state" style="display:none">
+      <div class="empty-icon"><i class="fas fa-images"></i></div>
+      <h3>No photos yet</h3>
+      <p>Upload your first photo to start your gallery</p>
+    </div>
+  </main>
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox">
+  <button class="lb-close" onclick="closeLightbox()"><i class="fas fa-times"></i></button>
+  <button class="lb-nav lb-prev" id="lbPrev" onclick="lightboxStep(-1)"><i class="fas fa-chevron-left"></i></button>
+  <button class="lb-nav lb-next" id="lbNext" onclick="lightboxStep(1)"><i class="fas fa-chevron-right"></i></button>
+  <img id="lightboxImg" src="" alt="">
+  <div class="lb-caption" id="lbCaption"></div>
+  <div class="lb-counter" id="lbCounter"></div>
+</div>
+
+<!-- Caption edit modal -->
+<div class="modal-overlay" id="captionModal">
+  <div class="modal caption-modal">
+    <div class="modal-header">
+      <h3><i class="fas fa-pen" style="color:var(--red)"></i> Edit Caption</h3>
+      <button class="modal-close" onclick="closeCaptionModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="form-group" style="margin-top:0.5rem">
+      <textarea class="form-input" id="captionInput" rows="3" placeholder="Add a romantic caption..."></textarea>
+    </div>
+    <button class="btn-primary" onclick="saveCaptionEdit()"><i class="fas fa-save"></i> Save Caption</button>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+<script>
+  if (!requireAuth()) void 0;
+  renderSidebar('gallery');
+
+  // ─── Storage: each photo stored under its own key to avoid quota issues ───
+  const GALLERY_INDEX = 'lg_gallery_index';
+
+  function getPhotoIndex() {
+    try { return JSON.parse(localStorage.getItem(GALLERY_INDEX)) || []; } catch { return []; }
+  }
+
+  function savePhotoIndex(ids) {
+    try { localStorage.setItem(GALLERY_INDEX, JSON.stringify(ids)); } catch(e) { console.warn(e); }
+  }
+
+  function getPhoto(id) {
+    try { return JSON.parse(localStorage.getItem('lg_photo_' + id)); } catch { return null; }
+  }
+
+  function getAllPhotos() {
+    return getPhotoIndex().map(id => getPhoto(id)).filter(Boolean);
+  }
+
+  function storePhoto(src, caption) {
+    const user = getUser();
+    const photo = {
+      id: Date.now().toString() + '_' + Math.random().toString(36).slice(2,6),
+      src, caption,
+      uploadedAt: new Date().toISOString(),
+      uploadedBy: user ? user.name : 'Unknown',
+    };
+    // Save photo data separately
+    localStorage.setItem('lg_photo_' + photo.id, JSON.stringify(photo));
+    // Add id to index
+    const ids = getPhotoIndex();
+    ids.unshift(photo.id);
+    savePhotoIndex(ids);
+    return photo;
+  }
+
+  function removePhoto(id) {
+    localStorage.removeItem('lg_photo_' + id);
+    savePhotoIndex(getPhotoIndex().filter(x => x !== id));
+    renderGallery();
+    toast('Photo removed', 'info');
+  }
+
+  function updateCaption(id, caption) {
+    const photo = getPhoto(id);
+    if (!photo) return;
+    photo.caption = caption;
+    localStorage.setItem('lg_photo_' + id, JSON.stringify(photo));
+  }
+
+  // ─── Upload ───────────────────────────────────────────────────────────────
+  const zone = document.getElementById('uploadZone');
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('drag-over');
+    handleFiles(e.dataTransfer.files);
+  });
+
+  async function handleFiles(fileList) {
+    if (!fileList || fileList.length === 0) return;
+    const files = Array.from(fileList).filter(f => f.type.startsWith('image/'));
+    if (files.length === 0) { toast('Please select image files only', 'error'); return; }
+
+    const progressEl  = document.getElementById('uploadProgress');
+    const fill        = document.getElementById('progressFill');
+    const pctEl       = document.getElementById('progressPct');
+    const labelEl     = document.getElementById('progressLabel');
+
+    progressEl.style.display = 'block';
+    labelEl.textContent = `Uploading ${files.length} photo${files.length > 1 ? 's' : ''}…`;
+
+    let uploaded = 0;
+    for (let i = 0; i < files.length; i++) {
+      try {
+        const compressed = await compressImage(files[i], 900, 0.65);
+        storePhoto(compressed, '');
+        uploaded++;
+      } catch (err) {
+        if (err && err.name === 'QuotaExceededError') {
+          toast('Storage full — clear some photos to upload more', 'error', 5000);
+          break;
+        }
+        toast(`Could not process "${files[i].name}"`, 'error');
+      }
+      const pct = Math.round(((i + 1) / files.length) * 100);
+      fill.style.width = pct + '%';
+      pctEl.textContent = pct + '%';
+    }
+
+    await new Promise(r => setTimeout(r, 700));
+    progressEl.style.display = 'none';
+    fill.style.width = '0%';
+    document.getElementById('fileInput').value = '';
+
+    if (uploaded > 0) {
+      toast(`${uploaded} photo${uploaded > 1 ? 's' : ''} added ♥`, 'success');
+      renderGallery();
+    }
+  }
+
+  // ─── Render ───────────────────────────────────────────────────────────────
+  let currentPhotos = [];
+  let lightboxIdx = 0;
+
+  function renderGallery() {
+    let photos = getAllPhotos();
+    if (document.getElementById('sortSelect').value === 'oldest') photos = [...photos].reverse();
+    currentPhotos = photos;
+
+    const grid  = document.getElementById('galleryGrid');
+    const empty = document.getElementById('galleryEmpty');
+    document.getElementById('galleryCount').textContent =
+      photos.length > 0 ? `${photos.length} photo${photos.length !== 1 ? 's' : ''}` : '';
+
+    if (photos.length === 0) { grid.innerHTML = ''; empty.style.display = 'block'; return; }
+    empty.style.display = 'none';
+
+    grid.innerHTML = photos.map((p, i) => `
+      <div class="gallery-item" onclick="openLightbox(${i})">
+        <img src="${p.src}" alt="gallery photo" loading="lazy">
+        <div class="item-overlay">
+          <div class="item-caption">${p.caption || '<em style="color:rgba(255,245,238,0.35)">No caption</em>'}</div>
+          <div class="item-meta">${formatDate(p.uploadedAt)} · ${p.uploadedBy}</div>
+        </div>
+        <div class="item-actions">
+          <button class="act-btn act-edit" title="Edit caption"
+            onclick="event.stopPropagation();openCaptionModal('${p.id}')">
+            <i class="fas fa-pen"></i>
+          </button>
+          <button class="act-btn act-del" title="Delete"
+            onclick="event.stopPropagation();removePhoto('${p.id}')">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // ─── Lightbox ─────────────────────────────────────────────────────────────
+  function openLightbox(i) {
+    lightboxIdx = i;
+    refreshLightbox();
+    document.getElementById('lightbox').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeLightbox() {
+    document.getElementById('lightbox').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  function refreshLightbox() {
+    const p = currentPhotos[lightboxIdx];
+    if (!p) return;
+    document.getElementById('lightboxImg').src = p.src;
+    document.getElementById('lbCaption').textContent = p.caption || '';
+    document.getElementById('lbCounter').textContent = `${lightboxIdx + 1} / ${currentPhotos.length}`;
+    document.getElementById('lbPrev').style.visibility = lightboxIdx === 0 ? 'hidden' : 'visible';
+    document.getElementById('lbNext').style.visibility = lightboxIdx === currentPhotos.length - 1 ? 'hidden' : 'visible';
+  }
+
+  function lightboxStep(dir) {
+    const next = lightboxIdx + dir;
+    if (next < 0 || next >= currentPhotos.length) return;
+    lightboxIdx = next;
+    refreshLightbox();
+  }
+
+  document.getElementById('lightbox').addEventListener('click', function(e) {
+    if (e.target === this) closeLightbox();
+  });
+
+  document.addEventListener('keydown', e => {
+    if (!document.getElementById('lightbox').classList.contains('open')) return;
+    if (e.key === 'ArrowLeft')  lightboxStep(-1);
+    if (e.key === 'ArrowRight') lightboxStep(1);
+    if (e.key === 'Escape')     closeLightbox();
+  });
+
+  // ─── Caption modal ────────────────────────────────────────────────────────
+  let editingId = null;
+
+  function openCaptionModal(id) {
+    editingId = id;
+    const p = getPhoto(id);
+    document.getElementById('captionInput').value = p ? p.caption : '';
+    document.getElementById('captionModal').classList.add('open');
+  }
+
+  function closeCaptionModal() {
+    document.getElementById('captionModal').classList.remove('open');
+    editingId = null;
+  }
+
+  function saveCaptionEdit() {
+    if (!editingId) return;
+    updateCaption(editingId, document.getElementById('captionInput').value.trim());
+    closeCaptionModal();
+    renderGallery();
+    toast('Caption saved ♥', 'success');
+  }
+
+  renderGallery();
+</script>
+</body>
+</html>

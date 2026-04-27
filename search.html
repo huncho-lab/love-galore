@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Love Galore — Search</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-app">
+<div class="app-layout">
+  <div id="sidebarContainer"></div>
+  <main class="main-content">
+    <div class="page-header">
+      <h1><i class="fas fa-search" style="color:var(--red);margin-right:0.5rem"></i>Search</h1>
+      <p>Find anything across your capsules, letters, story, bucket list and gallery.</p>
+    </div>
+
+    <div class="search-bar-wrap" style="margin-bottom:1.5rem">
+      <i class="fas fa-search"></i>
+      <input type="text" id="searchInput" placeholder="Type to search..." autofocus oninput="runSearch(this.value)">
+    </div>
+
+    <div id="searchResults"></div>
+  </main>
+</div>
+
+<script src="js/app.js"></script>
+<script>
+  if (!requireAuth()) void 0;
+  renderSidebar('search');
+
+  // Pre-fill from query param (e.g. from dashboard)
+  const qParam = new URLSearchParams(location.search).get('q');
+  if (qParam) { document.getElementById('searchInput').value = qParam; runSearch(qParam); }
+
+  function hl(text, q) {
+    if (!q || !text) return text || '';
+    const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return String(text).replace(new RegExp('(' + escaped + ')', 'gi'), '<span class="search-highlight">$1</span>');
+  }
+
+  function snippet(text, q, len = 120) {
+    if (!text) return '';
+    const idx = text.toLowerCase().indexOf(q.toLowerCase());
+    const start = Math.max(0, idx - 40);
+    const slice = text.slice(start, start + len);
+    return (start > 0 ? '...' : '') + hl(slice, q) + (slice.length === len ? '...' : '');
+  }
+
+  function runSearch(q) {
+    q = (q || '').trim();
+    const el = document.getElementById('searchResults');
+    if (q.length < 2) { el.innerHTML = `<div class="search-no-results">Type at least 2 characters to search</div>`; return; }
+
+    const results = [];
+
+    // Capsules
+    getCapsules().filter(c => (c.title + c.message).toLowerCase().includes(q.toLowerCase())).forEach(c => {
+      results.push({ type:'capsule', icon:'fa-box-open', title: hl(c.title, q), snippet: snippet(c.message, q), href:'time-capsules.html', label:'Time Capsule' });
+    });
+
+    // Letters
+    getLetters().filter(l => isLetterUnlocked(l) && (l.subject + l.body).toLowerCase().includes(q.toLowerCase())).forEach(l => {
+      results.push({ type:'letter', icon:'fa-envelope', title: hl(l.subject || '(No subject)', q), snippet: snippet(l.body, q), href:'love-letters.html', label:'Love Letter' });
+    });
+
+    // Bucket list
+    getBucketList().filter(b => (b.title + (b.note||'')).toLowerCase().includes(q.toLowerCase())).forEach(b => {
+      results.push({ type:'bucket', icon:'fa-check-circle', title: hl(b.title, q), snippet: hl(b.note || b.category, q), href:'bucket-list.html', label:'Bucket List' });
+    });
+
+    // Story
+    const story = getStory();
+    if ((story.howWeMet || '').toLowerCase().includes(q.toLowerCase())) {
+      results.push({ type:'story', icon:'fa-book-open', title:'How We Met', snippet: snippet(story.howWeMet, q), href:'our-story.html', label:'Our Story' });
+    }
+    if ((story.aboutPartner1 || '').toLowerCase().includes(q.toLowerCase())) {
+      results.push({ type:'story', icon:'fa-book-open', title:'About Us', snippet: snippet(story.aboutPartner1, q), href:'our-story.html#about', label:'Our Story' });
+    }
+    (story.timeline || []).filter(m => (m.title + m.desc).toLowerCase().includes(q.toLowerCase())).forEach(m => {
+      results.push({ type:'milestone', icon:'fa-clock', title: hl(m.title, q), snippet: snippet(m.desc, q), href:'our-story.html#timeline', label:'Timeline' });
+    });
+
+    // Gallery captions
+    getAllPhotos().filter(p => p.caption && p.caption.toLowerCase().includes(q.toLowerCase())).forEach(p => {
+      results.push({ type:'gallery', icon:'fa-camera-retro', title:'Gallery Photo', snippet: hl(p.caption, q), href:'gallery.html', label:'Gallery' });
+    });
+
+    // Saved date ideas
+    getSavedIdeas().filter(i => (i.title + i.description).toLowerCase().includes(q.toLowerCase())).forEach(i => {
+      results.push({ type:'idea', icon:'fa-heart', title: hl(i.title, q), snippet: snippet(i.description, q), href:'date-ideas.html#saved', label:'Saved Idea' });
+    });
+
+    if (results.length === 0) {
+      el.innerHTML = `<div class="search-no-results">No results for "<strong>${q}</strong>"</div>`; return;
+    }
+
+    // Group by type
+    const groups = {};
+    results.forEach(r => { if (!groups[r.label]) groups[r.label] = []; groups[r.label].push(r); });
+
+    el.innerHTML = Object.entries(groups).map(([label, items]) => `
+      <div class="search-group-label"><i class="fas ${items[0].icon}"></i> ${label} <span style="color:rgba(255,245,238,0.3)">(${items.length})</span></div>
+      ${items.map(r => `
+        <a class="search-result-item" href="${r.href}">
+          <i class="fas ${r.icon} search-result-icon"></i>
+          <div>
+            <div class="search-result-title">${r.title}</div>
+            ${r.snippet ? `<div class="search-result-snippet">${r.snippet}</div>` : ''}
+          </div>
+        </a>`).join('')}
+    `).join('');
+  }
+
+  // Gallery helper needed here
+  function getAllPhotos() {
+    const ids = (() => { try { return JSON.parse(localStorage.getItem('lg_gallery_index')) || []; } catch { return []; } })();
+    return ids.map(id => { try { return JSON.parse(localStorage.getItem('lg_photo_' + id)); } catch { return null; } }).filter(Boolean);
+  }
+</script>
+</body>
+</html>

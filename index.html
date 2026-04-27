@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Love Galore — Where Every Love Story Lives Forever</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#7B0000">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Love Galore">
+  <style>
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 1rem;
+      margin: 1.8rem 0;
+    }
+    .feature-item {
+      display: flex; flex-direction: column; align-items: center; gap: 0.4rem;
+      padding: 1rem 0.5rem;
+      background: rgba(92,46,14,0.25);
+      border: 1px solid rgba(212,169,106,0.2);
+      border-radius: 12px;
+      font-size: 0.82rem;
+      color: rgba(255,245,238,0.75);
+      text-align: center;
+    }
+    .feature-item i { font-size: 1.5rem; color: var(--red); }
+    .scroll-hint {
+      position: absolute;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255,245,238,0.4);
+      font-size: 0.8rem;
+      animation: bounce 2s ease infinite;
+      z-index: 2;
+    }
+    @keyframes bounce { 0%,100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(8px); } }
+    .tagline-accent { color: var(--red); }
+  </style>
+</head>
+<body class="landing-page bg-landing">
+
+  <!-- Floating hearts -->
+  <div class="hearts-container" id="heartsContainer"></div>
+
+  <div class="landing-content">
+    <div class="brand-logo"><i class="fas fa-heart"></i></div>
+
+    <h1 class="landing-title">Love Galore</h1>
+
+    <p class="landing-tagline">Where Every Love Story Lives <span class="tagline-accent">Forever</span></p>
+
+    <div class="landing-divider"><span class="divider-heart">♥</span></div>
+
+    <p class="landing-desc">
+      Some love stories deserve more than just photographs and faded memories.
+      <strong>Love Galore</strong> is your private sanctuary — a place to capture time capsules,
+      write your story, and discover endlessly romantic ways to keep the spark alive.
+      Because your love is worth celebrating, every single day.
+    </p>
+
+    <div class="feature-grid">
+      <div class="feature-item"><i class="fas fa-box-open"></i> Time Capsules</div>
+      <div class="feature-item"><i class="fas fa-book-open"></i> Your Story</div>
+      <div class="feature-item"><i class="fas fa-heart"></i> Date Ideas</div>
+      <div class="feature-item"><i class="fas fa-lock"></i> Private & Public</div>
+    </div>
+
+    <button class="enter-btn" onclick="enterApp()">
+      Begin Your Story &nbsp;<i class="fas fa-arrow-right"></i>
+    </button>
+
+    <p class="landing-hint">Already have an account? <a href="login.html">Sign In</a></p>
+  </div>
+
+  <div class="scroll-hint"><i class="fas fa-chevron-down"></i> Scroll to explore</div>
+
+  <script src="js/app.js"></script>
+  <script>
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    }
+    // Redirect if already logged in
+    if (getUser()) {
+      window.location.href = 'dashboard.html';
+    }
+
+    // Floating hearts
+    function spawnHeart() {
+      const el = document.createElement('div');
+      el.className = 'floating-heart';
+      el.textContent = Math.random() > 0.5 ? '♥' : '❤';
+      el.style.left = Math.random() * 100 + 'vw';
+      el.style.animationDuration = (Math.random() * 4 + 4) + 's';
+      el.style.opacity = Math.random() * 0.4 + 0.1;
+      el.style.fontSize = (Math.random() * 18 + 8) + 'px';
+      document.getElementById('heartsContainer').appendChild(el);
+      setTimeout(() => el.remove(), 8000);
+    }
+    setInterval(spawnHeart, 900);
+    for (let i = 0; i < 5; i++) setTimeout(spawnHeart, i * 200);
+
+    function enterApp() {
+      document.body.classList.add('exit');
+      setTimeout(() => window.location.href = 'login.html', 450);
+    }
+  </script>
+</body>
+</html>

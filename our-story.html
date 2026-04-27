@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Love Galore — Our Story</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    .story-tabs { display: flex; gap: 0.5rem; margin-bottom: 2rem; flex-wrap: wrap; }
+    .story-tab {
+      padding: 0.65rem 1.4rem; border-radius: 8px;
+      background: rgba(92,46,14,0.25); border: 1px solid rgba(212,169,106,0.25);
+      color: rgba(255,245,238,0.65); cursor: pointer; font-size: 0.88rem;
+      transition: all 0.3s;
+    }
+    .story-tab.active { background: rgba(123,0,0,0.45); border-color: var(--red); color: var(--cream); }
+    .story-tab:hover { border-color: var(--mid-brown); color: var(--cream); }
+    .story-form { max-width: 740px; }
+    .story-display {
+      background: var(--card-bg); border: 1px solid var(--glass-border);
+      border-radius: 14px; padding: 2rem;
+      backdrop-filter: blur(10px);
+      font-size: 0.95rem; line-height: 1.9; color: rgba(255,245,238,0.85);
+      white-space: pre-wrap;
+    }
+    .story-display:empty::before { content: 'Nothing written yet...'; color: rgba(255,245,238,0.3); font-style: italic; }
+    .about-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+    .about-card { background: var(--card-bg); border: 1px solid var(--glass-border); border-radius: 14px; padding: 1.8rem; backdrop-filter: blur(10px); }
+    .about-card h3 { font-size: 1.1rem; color: var(--cream); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+    .about-card h3 i { color: var(--red); }
+    .add-timeline-btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.65rem 1.4rem; background: rgba(123,0,0,0.4); border: 1px solid var(--red); border-radius: 8px; color: var(--cream); font-size: 0.88rem; cursor: pointer; transition: all 0.3s; margin-bottom: 1.5rem; }
+    .add-timeline-btn:hover { background: rgba(123,0,0,0.65); }
+    .edit-btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; background: rgba(92,46,14,0.4); border: 1px solid rgba(212,169,106,0.3); border-radius: 6px; color: var(--gold); font-size: 0.82rem; cursor: pointer; transition: all 0.3s; margin-bottom: 1rem; }
+    .edit-btn:hover { background: rgba(92,46,14,0.6); }
+    @media (max-width: 640px) { .about-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body class="bg-story">
+<div class="app-layout">
+  <div id="sidebarContainer"></div>
+
+  <main class="main-content">
+    <div class="page-header">
+      <h1><i class="fas fa-book-open" style="color:var(--red);margin-right:0.5rem"></i>Our Story</h1>
+      <p>Your love story deserves to be written, remembered, and cherished forever.</p>
+    </div>
+
+    <div class="story-tabs">
+      <button class="story-tab active" onclick="showSection('met')">How We Met</button>
+      <button class="story-tab" onclick="showSection('about')">About Us</button>
+      <button class="story-tab" onclick="showSection('timeline')">Our Timeline</button>
+    </div>
+
+    <!-- HOW WE MET -->
+    <div id="section-met">
+      <div class="form-section-title" style="margin-bottom:1.2rem"><i class="fas fa-heart"></i> How We Met</div>
+      <div id="met-display-mode">
+        <div id="met-preview" class="story-display"></div>
+        <br>
+        <button class="edit-btn" onclick="editSection('met')"><i class="fas fa-pen"></i> Edit Story</button>
+      </div>
+      <div id="met-edit-mode" style="display:none" class="story-form">
+        <div class="form-group">
+          <textarea class="form-input" id="met-textarea" rows="10"
+            placeholder="Tell the story of how you first met... Where were you? What happened? What did you first notice about each other? How did you know?"></textarea>
+        </div>
+        <div style="display:flex;gap:1rem;margin-top:0.5rem">
+          <button class="btn-primary" style="width:auto;padding:0.8rem 2rem" onclick="saveSection('met')">
+            <i class="fas fa-save"></i> Save
+          </button>
+          <button class="btn-secondary" onclick="cancelEdit('met')">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ABOUT US -->
+    <div id="section-about" style="display:none">
+      <div class="form-section-title" style="margin-bottom:1.5rem"><i class="fas fa-users"></i> About Us</div>
+      <div class="about-grid" id="aboutGrid"></div>
+      <br>
+      <div id="about-edit-mode" style="display:none" class="story-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label id="about-label-1"></label>
+            <textarea class="form-input" id="about-p1" rows="7" placeholder="Write about yourself — your personality, passions, dreams, what you love about life..."></textarea>
+          </div>
+          <div class="form-group">
+            <label id="about-label-2"></label>
+            <textarea class="form-input" id="about-p2" rows="7" placeholder="Write about your partner — what makes them unique, what you love most about them..."></textarea>
+          </div>
+        </div>
+        <div style="display:flex;gap:1rem;margin-top:0.5rem">
+          <button class="btn-primary" style="width:auto;padding:0.8rem 2rem" onclick="saveAbout()">
+            <i class="fas fa-save"></i> Save
+          </button>
+          <button class="btn-secondary" onclick="cancelAbout()">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TIMELINE -->
+    <div id="section-timeline" style="display:none">
+      <div class="form-section-title" style="margin-bottom:1rem"><i class="fas fa-clock"></i> Our Timeline</div>
+      <button class="add-timeline-btn" onclick="document.getElementById('timelineModal').classList.add('open')">
+        <i class="fas fa-plus"></i> Add Milestone
+      </button>
+      <div id="timelineList"></div>
+    </div>
+  </main>
+</div>
+
+<!-- Timeline Add Modal -->
+<div class="modal-overlay" id="timelineModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3><i class="fas fa-clock" style="color:var(--red)"></i> Add Timeline Milestone</h3>
+      <button class="modal-close" onclick="document.getElementById('timelineModal').classList.remove('open')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="form-group">
+      <label>Date</label>
+      <input type="date" class="form-input" id="tl-date">
+    </div>
+    <div class="form-group">
+      <label>Milestone Title</label>
+      <input type="text" class="form-input" id="tl-title" placeholder="E.g. First kiss, Moved in together...">
+    </div>
+    <div class="form-group">
+      <label>Description</label>
+      <textarea class="form-input" id="tl-desc" rows="3" placeholder="Describe this beautiful moment..."></textarea>
+    </div>
+    <button class="btn-primary" onclick="addTimelineEntry()"><i class="fas fa-plus"></i> Add to Timeline</button>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+<script>
+  if (!requireAuth()) void 0;
+  renderSidebar('how-met');
+
+  const user = getUser();
+  let story = getStory();
+
+  // Init displays
+  document.getElementById('met-preview').textContent = story.howWeMet || '';
+  renderAbout();
+  renderTimeline();
+
+  const hash = location.hash.replace('#', '');
+  if (hash === 'about') showSection('about');
+  else if (hash === 'timeline') showSection('timeline');
+
+  function showSection(name) {
+    ['met', 'about', 'timeline'].forEach(s => {
+      document.getElementById('section-' + s).style.display = s === name ? 'block' : 'none';
+    });
+    document.querySelectorAll('.story-tab').forEach((t, i) => {
+      t.classList.toggle('active', ['met','about','timeline'][i] === name);
+    });
+  }
+
+  function editSection(name) {
+    if (name === 'met') {
+      document.getElementById('met-textarea').value = story.howWeMet || '';
+      document.getElementById('met-display-mode').style.display = 'none';
+      document.getElementById('met-edit-mode').style.display = 'block';
+    }
+  }
+
+  function cancelEdit(name) {
+    document.getElementById(`${name}-display-mode`).style.display = 'block';
+    document.getElementById(`${name}-edit-mode`).style.display = 'none';
+  }
+
+  function saveSection(name) {
+    if (name === 'met') {
+      story.howWeMet = document.getElementById('met-textarea').value.trim();
+      saveStory(story);
+      document.getElementById('met-preview').textContent = story.howWeMet;
+      cancelEdit('met');
+      toast('Story saved ♥', 'success');
+    }
+  }
+
+  function renderAbout() {
+    const g = document.getElementById('aboutGrid');
+    g.innerHTML = `
+      <div class="about-card">
+        <h3><i class="fas fa-user"></i> ${user.name}</h3>
+        <div style="font-size:0.9rem;line-height:1.8;color:rgba(255,245,238,0.78);white-space:pre-wrap">${story.aboutPartner1 || '<span style="color:rgba(255,245,238,0.3);font-style:italic">Not written yet...</span>'}</div>
+      </div>
+      <div class="about-card">
+        <h3><i class="fas fa-heart"></i> ${user.spouseName}</h3>
+        <div style="font-size:0.9rem;line-height:1.8;color:rgba(255,245,238,0.78);white-space:pre-wrap">${story.aboutPartner2 || '<span style="color:rgba(255,245,238,0.3);font-style:italic">Not written yet...</span>'}</div>
+      </div>
+    `;
+    const editBtn = document.createElement('button');
+    editBtn.className = 'edit-btn';
+    editBtn.innerHTML = '<i class="fas fa-pen"></i> Edit About Us';
+    editBtn.onclick = showAboutEdit;
+    g.after(editBtn);
+  }
+
+  function showAboutEdit() {
+    document.getElementById('about-label-1').textContent = user.name;
+    document.getElementById('about-label-2').textContent = user.spouseName;
+    document.getElementById('about-p1').value = story.aboutPartner1 || '';
+    document.getElementById('about-p2').value = story.aboutPartner2 || '';
+    document.getElementById('about-edit-mode').style.display = 'block';
+    document.getElementById('aboutGrid').style.display = 'none';
+    document.querySelector('#section-about .edit-btn').style.display = 'none';
+  }
+
+  function cancelAbout() {
+    document.getElementById('about-edit-mode').style.display = 'none';
+    document.getElementById('aboutGrid').style.display = 'grid';
+    document.querySelector('#section-about .edit-btn').style.display = 'inline-flex';
+  }
+
+  function saveAbout() {
+    story.aboutPartner1 = document.getElementById('about-p1').value.trim();
+    story.aboutPartner2 = document.getElementById('about-p2').value.trim();
+    saveStory(story);
+    renderAbout();
+    cancelAbout();
+    toast('About Us saved ♥', 'success');
+  }
+
+  function renderTimeline() {
+    const entries = (story.timeline || []).sort((a,b) => new Date(a.date) - new Date(b.date));
+    const el = document.getElementById('timelineList');
+    if (entries.length === 0) {
+      el.innerHTML = `<div class="empty-state" style="padding:2rem">
+        <div class="empty-icon"><i class="fas fa-history"></i></div>
+        <h3>No milestones yet</h3>
+        <p>Add your first beautiful memory to the timeline</p>
+      </div>`;
+      return;
+    }
+    el.innerHTML = `<div class="timeline">
+      ${entries.map((e, i) => `
+        <div class="timeline-item">
+          <div class="timeline-dot"></div>
+          <div class="timeline-date">${formatDate(e.date)}</div>
+          <div class="timeline-content">
+            <h4>${e.title}</h4>
+            <p>${e.desc}</p>
+          </div>
+          <button class="btn-danger btn-sm" style="margin-top:0.5rem" onclick="removeTimelineEntry(${i})">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+      `).join('')}
+    </div>`;
+  }
+
+  function addTimelineEntry() {
+    const date  = document.getElementById('tl-date').value;
+    const title = document.getElementById('tl-title').value.trim();
+    const desc  = document.getElementById('tl-desc').value.trim();
+    if (!date || !title) { toast('Please fill in the date and title', 'error'); return; }
+    story = getStory();
+    if (!story.timeline) story.timeline = [];
+    story.timeline.push({ date, title, desc });
+    saveStory(story);
+    document.getElementById('timelineModal').classList.remove('open');
+    document.getElementById('tl-date').value = '';
+    document.getElementById('tl-title').value = '';
+    document.getElementById('tl-desc').value = '';
+    renderTimeline();
+    toast('Milestone added ♥', 'success');
+  }
+
+  function removeTimelineEntry(index) {
+    if (!confirm('Remove this milestone?')) return;
+    story.timeline.splice(index, 1);
+    saveStory(story);
+    renderTimeline();
+  }
+</script>
+</body>
+</html>

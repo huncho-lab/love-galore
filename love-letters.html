@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Love Galore — Love Letters</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    .letter-tabs { display:flex;gap:0.5rem;margin-bottom:2rem;flex-wrap:wrap; }
+    .letter-tab { padding:0.6rem 1.4rem;border-radius:8px;background:rgba(92,46,14,0.25);border:1px solid rgba(212,169,106,0.25);color:rgba(255,245,238,0.65);cursor:pointer;font-size:0.88rem;transition:all 0.3s; }
+    .letter-tab.active { background:rgba(123,0,0,0.45);border-color:var(--red);color:var(--cream); }
+    .letter-tab:hover { color:var(--cream);border-color:var(--mid-brown); }
+  </style>
+</head>
+<body class="bg-story">
+<div class="app-layout">
+  <div id="sidebarContainer"></div>
+  <main class="main-content">
+    <div class="page-header">
+      <h1><i class="fas fa-envelope" style="color:var(--red);margin-right:0.5rem"></i>Love Letters</h1>
+      <p>Words written with love, delivered through time.</p>
+    </div>
+
+    <div class="letter-tabs">
+      <button class="letter-tab active" onclick="showTab('inbox')">Inbox</button>
+      <button class="letter-tab" onclick="showTab('write')">✍️ Write a Letter</button>
+      <button class="letter-tab" onclick="showTab('sent')">Sent</button>
+      <button class="letter-tab" onclick="showTab('locked')">Locked</button>
+    </div>
+
+    <!-- Inbox -->
+    <div id="tab-inbox"><div id="inboxList"></div></div>
+
+    <!-- Write -->
+    <div id="tab-write" style="display:none">
+      <div class="letter-write-form">
+        <div class="form-section-title" style="margin-bottom:1.5rem"><i class="fas fa-feather-alt" style="color:var(--red)"></i> Compose a Letter</div>
+        <div class="form-group">
+          <label>To</label>
+          <select class="form-input" id="letter-to"></select>
+        </div>
+        <div class="form-group">
+          <label>Subject</label>
+          <input type="text" class="form-input" id="letter-subject" placeholder="e.g. Everything I love about you...">
+        </div>
+        <div class="form-group">
+          <label>Your Letter</label>
+          <textarea class="form-input" id="letter-body" rows="10"
+            placeholder="Dear [name],&#10;&#10;Write your heart here...&#10;&#10;With all my love,&#10;[Your name]" style="font-family:'Playfair Display',serif;font-style:italic;line-height:1.9"></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label><i class="fas fa-calendar-alt"></i> Unlock Date</label>
+            <input type="date" class="form-input" id="letter-unlock">
+          </div>
+          <div class="form-group">
+            <label><i class="fas fa-globe"></i> Privacy</label>
+            <select class="form-input" id="letter-privacy">
+              <option value="private">Private</option>
+              <option value="public">Public</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn-primary" style="width:auto;padding:0.9rem 2.2rem" onclick="submitLetter()">
+          <i class="fas fa-paper-plane"></i> &nbsp;Send Letter
+        </button>
+      </div>
+    </div>
+
+    <!-- Sent -->
+    <div id="tab-sent" style="display:none"><div id="sentList"></div></div>
+
+    <!-- Locked -->
+    <div id="tab-locked" style="display:none"><div id="lockedList"></div></div>
+  </main>
+</div>
+
+<!-- Letter view modal -->
+<div class="modal-overlay" id="letterModal">
+  <div class="modal" style="max-width:620px">
+    <div class="modal-header">
+      <h3 id="letterModalTitle"></h3>
+      <button class="modal-close" onclick="document.getElementById('letterModal').classList.remove('open')"><i class="fas fa-times"></i></button>
+    </div>
+    <div id="letterModalBody"></div>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+<script>
+  if (!requireAuth()) void 0;
+  renderSidebar('letters-inbox');
+
+  const user = getUser();
+
+  // Populate "To" dropdown
+  const toSel = document.getElementById('letter-to');
+  [user.name, user.spouseName].forEach(n => {
+    const o = document.createElement('option'); o.value = n; o.textContent = n; toSel.appendChild(o);
+  });
+
+  // Set min unlock date
+  const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+  document.getElementById('letter-unlock').min = tomorrow.toISOString().split('T')[0];
+
+  // Hash routing
+  const hash = location.hash.replace('#', '');
+  if (hash === 'write')  showTab('write');
+  else if (hash === 'sent')  showTab('sent');
+  else { renderInbox(); }
+
+  function showTab(name) {
+    ['inbox','write','sent','locked'].forEach(t => {
+      document.getElementById('tab-' + t).style.display = t === name ? 'block' : 'none';
+    });
+    document.querySelectorAll('.letter-tab').forEach((b, i) => {
+      b.classList.toggle('active', ['inbox','write','sent','locked'][i] === name);
+    });
+    if (name === 'inbox')  renderInbox();
+    if (name === 'sent')   renderSent();
+    if (name === 'locked') renderLocked();
+  }
+
+  function renderInbox() {
+    const letters = getLetters().filter(l => l.to === user.name && isLetterUnlocked(l));
+    renderLetterList('inboxList', letters, 'inbox');
+  }
+  function renderSent() {
+    const letters = getLetters().filter(l => l.from === user.name && isLetterUnlocked(l));
+    renderLetterList('sentList', letters, 'sent');
+  }
+  function renderLocked() {
+    const letters = getLetters().filter(l => !isLetterUnlocked(l));
+    renderLetterList('lockedList', letters, 'locked');
+  }
+
+  function renderLetterList(elId, letters, mode) {
+    const el = document.getElementById(elId);
+    if (letters.length === 0) {
+      el.innerHTML = `<div class="empty-state"><div class="empty-icon"><i class="fas fa-envelope-open"></i></div>
+        <h3>Nothing here yet</h3>
+        <p>${mode === 'inbox' ? 'No unlocked letters addressed to you' : mode === 'sent' ? 'No sent letters unlocked yet' : 'No locked letters'}</p></div>`;
+      return;
+    }
+    el.innerHTML = letters.map(l => `
+      <div class="letter-card ${isLetterUnlocked(l) ? '' : 'locked'}">
+        <div class="letter-header">
+          <div>
+            <div class="letter-subject">${l.subject || '(No subject)'}</div>
+            <div class="letter-from-to">From <strong>${l.from}</strong> to <strong>${l.to}</strong> · ${timeAgo(l.createdAt)}</div>
+          </div>
+          <div class="letter-seal-icon"><i class="fas fa-${isLetterUnlocked(l) ? 'envelope-open' : 'lock'}"></i></div>
+        </div>
+        ${isLetterUnlocked(l)
+          ? `<div class="letter-body">${l.body.substring(0,200)}${l.body.length>200?'...':''}</div>
+             <div class="card-footer">
+               <button class="btn-sm gold" onclick="openLetter('${l.id}')"><i class="fas fa-eye"></i> Read</button>
+               <span class="privacy-badge ${l.privacy}"><i class="fas fa-${l.privacy==='public'?'globe':'lock'}"></i> ${l.privacy}</span>
+               <button class="btn-danger btn-sm" onclick="removeLetter('${l.id}')"><i class="fas fa-trash"></i></button>
+             </div>`
+          : `<div class="unlock-date"><i class="fas fa-hourglass-half"></i> ${formatUnlockDate(l.unlockDate)}</div>
+             <div class="card-footer"><button class="btn-danger btn-sm" onclick="removeLetter('${l.id}')"><i class="fas fa-trash"></i></button></div>`
+        }
+      </div>`).join('');
+  }
+
+  function openLetter(id) {
+    const l = getLetters().find(x => x.id === id);
+    if (!l) return;
+    document.getElementById('letterModalTitle').textContent = l.subject || '(No subject)';
+    document.getElementById('letterModalBody').innerHTML = `
+      <div style="font-size:0.78rem;color:var(--mid-brown);margin-bottom:1rem">From ${l.from} to ${l.to} · ${formatDate(l.createdAt)}</div>
+      <div class="letter-body" style="max-height:400px;overflow-y:auto">${l.body}</div>`;
+    document.getElementById('letterModal').classList.add('open');
+  }
+
+  function submitLetter() {
+    const to      = document.getElementById('letter-to').value;
+    const subject = document.getElementById('letter-subject').value.trim();
+    const body    = document.getElementById('letter-body').value.trim();
+    const unlock  = document.getElementById('letter-unlock').value;
+    const privacy = document.getElementById('letter-privacy').value;
+    if (!subject || !body || !unlock) { toast('Please fill in all fields', 'error'); return; }
+    createLetter({ to, subject, body, unlockDate: unlock, privacy });
+    toast(`Letter to ${to} sealed ♥ Unlocks ${formatDate(unlock)}`, 'success', 4000);
+    document.getElementById('letter-subject').value = '';
+    document.getElementById('letter-body').value    = '';
+    showTab('sent');
+  }
+
+  function removeLetter(id) {
+    if (!confirm('Delete this letter?')) return;
+    deleteLetter(id); toast('Deleted', 'info');
+    showTab('inbox');
+  }
+</script>
+</body>
+</html>

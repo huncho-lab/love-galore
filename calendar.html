@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Love Galore — Love Calendar</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-app">
+<div class="app-layout">
+  <div id="sidebarContainer"></div>
+  <main class="main-content">
+    <div class="page-header">
+      <h1><i class="fas fa-calendar-alt" style="color:var(--red);margin-right:0.5rem"></i>Love Calendar</h1>
+      <p>All your important dates in one romantic view.</p>
+    </div>
+
+    <!-- Legend -->
+    <div class="cal-legend">
+      <div class="cal-legend-item"><div class="cal-legend-dot" style="background:rgba(192,57,43,0.65)"></div> Anniversary</div>
+      <div class="cal-legend-item"><div class="cal-legend-dot" style="background:rgba(123,0,0,0.55)"></div> Capsule Unlock</div>
+      <div class="cal-legend-item"><div class="cal-legend-dot" style="background:rgba(92,46,14,0.65)"></div> Letter Unlock</div>
+      <div class="cal-legend-item"><div class="cal-legend-dot" style="background:rgba(44,18,10,0.75)"></div> Milestone / Bucket List</div>
+    </div>
+
+    <!-- Nav -->
+    <div class="cal-nav">
+      <button class="cal-nav-btn" onclick="changeMonth(-1)"><i class="fas fa-chevron-left"></i></button>
+      <div class="cal-month-label" id="monthLabel"></div>
+      <button class="cal-nav-btn" onclick="changeMonth(1)"><i class="fas fa-chevron-right"></i></button>
+    </div>
+
+    <!-- Grid -->
+    <div class="cal-grid" id="calGrid"></div>
+
+    <!-- Upcoming events -->
+    <div class="cal-upcoming">
+      <h3><i class="fas fa-clock" style="color:var(--red);margin-right:0.5rem"></i>Upcoming Events</h3>
+      <div id="upcomingList"></div>
+    </div>
+  </main>
+</div>
+
+<script src="js/app.js"></script>
+<script>
+  if (!requireAuth()) void 0;
+  renderSidebar('calendar');
+
+  const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  let viewDate = new Date();
+
+  function getEvents() {
+    const events = [];
+    const now = new Date();
+    const settings = getSettings();
+
+    // Anniversary
+    if (settings.startDate) {
+      const start = new Date(settings.startDate);
+      for (let yr = now.getFullYear() - 1; yr <= now.getFullYear() + 2; yr++) {
+        events.push({ date: new Date(yr, start.getMonth(), start.getDate()), label: `Anniversary (${yr - start.getFullYear()} yr${yr - start.getFullYear() !== 1 ? 's' : ''})`, type: 'ann' });
+      }
+    }
+
+    // Capsule unlocks
+    getCapsules().forEach(c => {
+      events.push({ date: new Date(c.unlockDate), label: `Capsule: ${c.title}`, type: 'capsule' });
+    });
+
+    // Letter unlocks
+    getLetters().forEach(l => {
+      events.push({ date: new Date(l.unlockDate), label: `Letter: ${l.subject || '(untitled)'}`, type: 'letter' });
+    });
+
+    // Timeline milestones
+    (getStory().timeline || []).forEach(m => {
+      events.push({ date: new Date(m.date), label: m.title, type: 'milestone' });
+    });
+
+    // Bucket list target dates
+    getBucketList().filter(b => b.targetDate).forEach(b => {
+      events.push({ date: new Date(b.targetDate), label: `🎯 ${b.title}`, type: 'milestone' });
+    });
+
+    return events;
+  }
+
+  function getEventsForDate(date, events) {
+    return events.filter(e => {
+      const d = e.date;
+      return d.getFullYear() === date.getFullYear() && d.getMonth() === date.getMonth() && d.getDate() === date.getDate();
+    });
+  }
+
+  function changeMonth(dir) {
+    viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth() + dir, 1);
+    renderCalendar();
+  }
+
+  function renderCalendar() {
+    const year  = viewDate.getFullYear();
+    const month = viewDate.getMonth();
+    const today = new Date();
+    const events = getEvents();
+
+    document.getElementById('monthLabel').textContent = `${MONTHS[month]} ${year}`;
+
+    // Day headers
+    let html = DAYS.map(d => `<div class="cal-day-header">${d}</div>`).join('');
+
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const daysInPrev  = new Date(year, month, 0).getDate();
+
+    // Previous month cells
+    for (let i = firstDay - 1; i >= 0; i--) {
+      html += `<div class="cal-cell other-month"><div class="cal-date">${daysInPrev - i}</div></div>`;
+    }
+
+    // Current month cells
+    for (let d = 1; d <= daysInMonth; d++) {
+      const cellDate = new Date(year, month, d);
+      const isToday = cellDate.toDateString() === today.toDateString();
+      const dayEvents = getEventsForDate(cellDate, events);
+      const dotsHtml = dayEvents.slice(0,3).map(e => `<span class="cal-event-dot ${e.type}">${e.label}</span>`).join('');
+      html += `<div class="cal-cell ${isToday ? 'today' : ''} ${dayEvents.length > 0 ? 'has-events' : ''}">
+        <div class="cal-date">${d}</div>${dotsHtml}</div>`;
+    }
+
+    // Next month filler
+    const totalCells = firstDay + daysInMonth;
+    const remaining  = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+    for (let d = 1; d <= remaining; d++) {
+      html += `<div class="cal-cell other-month"><div class="cal-date">${d}</div></div>`;
+    }
+
+    document.getElementById('calGrid').innerHTML = html;
+    renderUpcoming(events);
+  }
+
+  function renderUpcoming(events) {
+    const now = new Date();
+    const upcoming = events
+      .filter(e => e.date >= now)
+      .sort((a, b) => a.date - b.date)
+      .slice(0, 10);
+
+    const el = document.getElementById('upcomingList');
+    if (upcoming.length === 0) {
+      el.innerHTML = `<div style="color:rgba(255,245,238,0.35);font-style:italic;font-size:0.88rem">No upcoming events. Add capsules, letters, or milestones to see them here.</div>`;
+      return;
+    }
+    el.innerHTML = upcoming.map(e => {
+      const diff = Math.ceil((e.date - now) / 86400000);
+      const diffLabel = diff === 0 ? 'Today' : diff === 1 ? 'Tomorrow' : `In ${diff} days`;
+      return `<div class="cal-upcoming-item">
+        <div class="cal-upcoming-date">${diffLabel}</div>
+        <div>
+          <div class="cal-upcoming-title">${e.label}</div>
+          <div class="cal-upcoming-sub">${e.date.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}</div>
+        </div>
+        <span class="cal-event-dot ${e.type}" style="margin:0;flex-shrink:0">${e.type}</span>
+      </div>`;
+    }).join('');
+  }
+
+  renderCalendar();
+</script>
+</body>
+</html>

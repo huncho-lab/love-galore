@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Love Galore — Sign In</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    .back-link {
+      position: fixed; top: 1.5rem; left: 1.5rem; z-index: 10;
+      color: rgba(255,245,238,0.5); font-size: 0.88rem;
+      display: flex; align-items: center; gap: 0.4rem;
+      transition: color 0.3s;
+    }
+    .back-link:hover { color: var(--cream); }
+    .hearts-container { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+    .floating-heart { position: absolute; bottom: -50px; color: var(--red); animation: floatUp linear forwards; user-select: none; }
+    @keyframes floatUp {
+      0%   { bottom: -50px; opacity: 0.5; transform: translateX(0); }
+      100% { bottom: 110vh; opacity: 0; transform: translateX(15px); }
+    }
+  </style>
+</head>
+<body class="login-page bg-login">
+
+  <div class="hearts-container" id="heartsContainer"></div>
+
+  <a href="index.html" class="back-link"><i class="fas fa-arrow-left"></i> Back to Home</a>
+
+  <div class="login-card" style="position:relative;z-index:2">
+    <div class="login-logo">
+      <i class="fas fa-heart"></i>
+      <h1>Love Galore</h1>
+      <p>Your love story starts here</p>
+    </div>
+
+    <!-- Tabs -->
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchTab('register')">Create Account</button>
+      <button class="auth-tab" onclick="switchTab('login')">Sign In</button>
+    </div>
+
+    <!-- Register Form -->
+    <form class="auth-form active" id="registerForm" onsubmit="handleRegister(event)">
+      <div class="form-row">
+        <div class="form-group">
+          <label><i class="fas fa-user"></i> Your Name</label>
+          <input type="text" id="reg-name" placeholder="Your first name" required>
+        </div>
+        <div class="form-group">
+          <label><i class="fas fa-heart"></i> Spouse / Partner</label>
+          <input type="text" id="reg-spouse" placeholder="Their name" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label><i class="fas fa-envelope"></i> Email Address</label>
+        <input type="email" id="reg-email" placeholder="your@email.com" required>
+      </div>
+      <div class="form-group">
+        <label><i class="fas fa-lock"></i> Password</label>
+        <input type="password" id="reg-password" placeholder="Create a password" minlength="6" required>
+      </div>
+      <button type="submit" class="btn-primary" style="margin-top:0.5rem">
+        <i class="fas fa-heart"></i> &nbsp;Begin Our Story
+      </button>
+    </form>
+
+    <!-- Login Form -->
+    <form class="auth-form" id="loginForm" onsubmit="handleLogin(event)">
+      <div class="form-group">
+        <label><i class="fas fa-user"></i> Your Name or Spouse's Name</label>
+        <input type="text" id="login-name" placeholder="Either partner's name" required>
+      </div>
+      <div class="form-group">
+        <label><i class="fas fa-lock"></i> Password</label>
+        <input type="password" id="login-password" placeholder="Your password" required>
+      </div>
+      <button type="submit" class="btn-primary" style="margin-top:0.5rem">
+        <i class="fas fa-sign-in-alt"></i> &nbsp;Sign In
+      </button>
+    </form>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    if (getUser()) window.location.href = 'dashboard.html';
+
+    function spawnHeart() {
+      const el = document.createElement('div');
+      el.className = 'floating-heart';
+      el.textContent = '♥';
+      el.style.left = Math.random() * 100 + 'vw';
+      el.style.animationDuration = (Math.random() * 5 + 5) + 's';
+      el.style.opacity = Math.random() * 0.3 + 0.1;
+      el.style.fontSize = (Math.random() * 14 + 8) + 'px';
+      document.getElementById('heartsContainer').appendChild(el);
+      setTimeout(() => el.remove(), 10000);
+    }
+    setInterval(spawnHeart, 1200);
+
+    const tabs = document.querySelectorAll('.auth-tab');
+    const forms = document.querySelectorAll('.auth-form');
+
+    function switchTab(name) {
+      tabs.forEach((t, i) => {
+        const match = (i === 0 && name === 'register') || (i === 1 && name === 'login');
+        t.classList.toggle('active', match);
+      });
+      forms.forEach(f => f.classList.remove('active'));
+      document.getElementById(name === 'register' ? 'registerForm' : 'loginForm').classList.add('active');
+    }
+
+    function handleRegister(e) {
+      e.preventDefault();
+      const name     = document.getElementById('reg-name').value.trim();
+      const spouse   = document.getElementById('reg-spouse').value.trim();
+      const email    = document.getElementById('reg-email').value.trim();
+      const password = document.getElementById('reg-password').value;
+
+      const userData = { name, spouseName: spouse, email, password };
+      store.set('lg_user', userData);
+      // Index by both names (lowercase) so either can sign in
+      store.set('lg_user_db_' + name.toLowerCase(), userData);
+      store.set('lg_user_db_' + spouse.toLowerCase(), userData);
+      toast('Welcome to Love Galore! ♥', 'success');
+      setTimeout(() => { document.body.classList.add('exit'); setTimeout(() => window.location.href = 'dashboard.html', 450); }, 600);
+    }
+
+    function handleLogin(e) {
+      e.preventDefault();
+      const name     = document.getElementById('login-name').value.trim().toLowerCase();
+      const password = document.getElementById('login-password').value;
+
+      const stored = store.get('lg_user_db_' + name);
+      if (!stored || stored.password !== password) {
+        toast('Name or password is incorrect', 'error');
+        return;
+      }
+      store.set('lg_user', stored);
+      toast('Welcome back! ♥', 'success');
+      setTimeout(() => { document.body.classList.add('exit'); setTimeout(() => window.location.href = 'dashboard.html', 450); }, 600);
+    }
+  </script>
+</body>
+</html>
