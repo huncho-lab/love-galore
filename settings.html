@@ -58,43 +58,14 @@
       <div id="daysPreview" style="margin-top:0.75rem"></div>
     </div>
 
-    <!-- AI / API -->
-    <div class="settings-section">
-      <h3><i class="fas fa-robot"></i> AI Date Ideas — Claude API Key</h3>
-      <div class="form-group">
-        <label>Anthropic API Key</label>
-        <input type="password" class="form-input" id="s-apiKey" placeholder="sk-ant-...">
-        <div class="api-key-note">
-          Get a free key at <strong>console.anthropic.com</strong>. When set, the Date Ideas generator uses real Claude AI for personalised, city-specific results instead of templates. Your key is stored locally in your browser only — never sent anywhere except directly to Anthropic.
-        </div>
-      </div>
-    </div>
-
     <button class="btn-primary" style="max-width:220px;margin-bottom:2rem" onclick="saveAllSettings()">
       <i class="fas fa-save"></i> &nbsp;Save Settings
     </button>
 
-    <!-- Export / Import -->
-    <div class="settings-section">
-      <h3><i class="fas fa-database"></i> Backup &amp; Restore</h3>
-      <p style="font-size:0.88rem;color:rgba(255,245,238,0.55);margin-bottom:1.2rem;line-height:1.7">
-        All your data lives in your browser. Export a backup regularly so you don't lose capsules, letters, or photos if your browser storage is cleared.
-      </p>
-      <div class="export-import-row">
-        <button class="btn-primary" style="width:auto" onclick="exportData()">
-          <i class="fas fa-download"></i> &nbsp;Export Backup
-        </button>
-        <label class="btn-secondary" style="cursor:pointer;display:inline-flex;align-items:center;gap:0.5rem">
-          <i class="fas fa-upload"></i> Import Backup
-          <input type="file" accept=".json" style="display:none" onchange="importData(this.files[0])">
-        </label>
-      </div>
-    </div>
-
     <!-- Danger zone -->
     <div class="settings-section danger-zone">
       <h3><i class="fas fa-exclamation-triangle"></i> Danger Zone</h3>
-      <p style="font-size:0.88rem;color:rgba(255,245,238,0.55);margin-bottom:1.2rem">Clearing your data is permanent and cannot be undone. Export a backup first.</p>
+      <p style="font-size:0.88rem;color:rgba(255,245,238,0.55);margin-bottom:1.2rem">Clearing your data is permanent and cannot be undone.</p>
       <button class="btn-danger" onclick="clearAllData()"><i class="fas fa-trash"></i> Clear All Data</button>
     </div>
 
@@ -119,7 +90,6 @@
     emailEl.style.opacity = '0.6';
     emailEl.style.cursor  = 'not-allowed';
     document.getElementById('s-startDate').value = settings.startDate || '';
-    document.getElementById('s-apiKey').value    = settings.apiKey || '';
 
     if (settings.couplePhoto) {
       const img = document.getElementById('couplePhotoPreview');
@@ -158,10 +128,9 @@
     const name      = document.getElementById('s-name').value.trim();
     const spouse    = document.getElementById('s-spouse').value.trim();
     const startDate = document.getElementById('s-startDate').value;
-    const apiKey    = document.getElementById('s-apiKey').value.trim();
     if (!name || !spouse) { toast('Names cannot be empty', 'error'); return; }
     try {
-      await saveSettings({ name, spouseName: spouse, startDate, apiKey });
+      await saveSettings({ name, spouseName: spouse, startDate });
       toast('Settings saved ♥', 'success');
       setTimeout(() => renderSidebar('settings'), 300);
     } catch(e) {
