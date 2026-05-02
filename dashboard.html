@@ -97,70 +97,25 @@
   </main>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/app.js"></script>
 <script>
-  if (!requireAuth()) void 0;
-  renderSidebar('dashboard');
-
-  const user = getUser();
-
-  // Days together hero
-  const days = getDaysTogether();
-  const ann  = getNextAnniversary();
-  const heroEl = document.getElementById('daysHero');
-  if (days !== null) {
-    const startDate = getSettings().startDate;
-    heroEl.innerHTML = `
-      <div class="days-hero">
-        <div>
-          <div class="days-num">${days.toLocaleString()}</div>
-          <div class="days-label">Days Together</div>
-          <div class="days-meta">Since ${formatDate(startDate)}</div>
-        </div>
-        ${ann ? `<div class="ann-badge"><i class="fas fa-calendar-heart"></i> Anniversary in ${ann.days} day${ann.days !== 1 ? 's' : ''}</div>` : ''}
-      </div>`;
-  } else {
-    heroEl.innerHTML = `<div style="margin-bottom:1.5rem;padding:1rem;background:rgba(44,18,10,0.5);border-radius:12px;border:1px dashed rgba(212,169,106,0.2);text-align:center">
-      <a href="settings.html" style="color:var(--gold);font-size:0.88rem"><i class="fas fa-cog"></i> Set your relationship start date in Settings to see your days together</a>
-    </div>`;
-  }
-
-  // Love quote
   const quotes = [
     { text: "You are my today and all of my tomorrows.", author: "Leo Christopher" },
-    { text: "Whatever our souls are made of, his and mine are the same.", author: "Emily Brontë" },
+    { text: "Whatever our souls are made of, his and mine are the same.", author: "Emily Bronte" },
     { text: "I love you not only for what you are, but for what I am when I am with you.", author: "Roy Croft" },
     { text: "The best thing to hold onto in life is each other.", author: "Audrey Hepburn" },
     { text: "In all the world, there is no heart for me like yours.", author: "Maya Angelou" },
     { text: "Every love story is beautiful, but ours is my favourite.", author: "Unknown" },
     { text: "I saw that you were perfect, and so I loved you. Then I saw that you were not perfect and I loved you even more.", author: "Angelita Lim" },
     { text: "To love is nothing. To be loved is something. But to love and be loved, that's everything.", author: "T. Tolis" },
-    { text: "You don't love someone for their looks, or their clothes, or their fancy car, but because they sing a song only you can hear.", author: "Oscar Wilde" },
+    { text: "You don't love someone for their looks, but because they sing a song only you can hear.", author: "Oscar Wilde" },
   ];
-  const q = quotes[Math.floor(Math.random() * quotes.length)];
-  document.getElementById('loveQuote').textContent = `"${q.text}"`;
-  document.getElementById('loveQuoteAuthor').textContent = `— ${q.author}`;
 
-  // Stats
-  const capsules = getCapsules();
-  const savedIdeas = getSavedIdeas();
-  const letters = getLetters();
-  const bucket = getBucketList();
-  document.getElementById('statsGrid').innerHTML = [
-    { icon:'fas fa-box-open',  value: capsules.length,                                             label:'Time Capsules' },
-    { icon:'fas fa-envelope',  value: letters.filter(l => isLetterUnlocked(l)).length,             label:'Unlocked Letters' },
-    { icon:'fas fa-check-circle', value: bucket.filter(b => b.completed).length+'/'+bucket.length, label:'Bucket List' },
-    { icon:'fas fa-bookmark',  value: savedIdeas.length,                                           label:'Saved Date Ideas' },
-  ].map(s => `<div class="stat-card">
-    <div class="stat-icon"><i class="${s.icon}"></i></div>
-    <div><div class="stat-value">${s.value}</div><div class="stat-label">${s.label}</div></div>
-  </div>`).join('');
-
-  // Notes
-  function renderNotes() {
-    const notes = getNotes();
+  async function renderNotes() {
+    const notes = await getNotes();
     const el = document.getElementById('notesList');
-    if (notes.length === 0) { el.innerHTML = `<div style="font-size:0.82rem;color:rgba(255,245,238,0.25);padding:0.5rem">No notes yet — write something sweet ♥</div>`; return; }
+    if (notes.length === 0) { el.innerHTML = '<div style="font-size:0.82rem;color:rgba(255,245,238,0.25);padding:0.5rem">No notes yet — write something sweet ♥</div>'; return; }
     el.innerHTML = notes.slice(0, 8).map(n => `
       <div class="note-chip">
         <div>
@@ -170,33 +125,75 @@
         <button class="note-del" onclick="removeNote('${n.id}')"><i class="fas fa-times"></i></button>
       </div>`).join('');
   }
-  function submitNote() {
+  async function submitNote() {
     const input = document.getElementById('noteInput');
     const text = input.value.trim();
     if (!text) return;
-    addNote(text); input.value = ''; renderNotes();
+    await addNote(text); input.value = ''; renderNotes();
   }
-  function removeNote(id) { deleteNote(id); renderNotes(); }
-  renderNotes();
+  async function removeNote(id) { await deleteNote(id); renderNotes(); }
 
-  // Recent capsules
-  const recentEl = document.getElementById('recentCapsules');
-  if (capsules.length === 0) {
-    recentEl.innerHTML = `<div class="empty-state" style="padding:2rem">
-      <div class="empty-icon"><i class="fas fa-box-open"></i></div>
-      <h3>No capsules yet</h3><p>Create your first time capsule</p></div>`;
-  } else {
-    recentEl.innerHTML = `<div class="card-grid">${capsules.slice(0,3).map(c => {
-      const u = isUnlocked(c);
-      return `<div class="card ${u?'':'card-locked'}">
-        <div class="lock-icon"><i class="fas fa-${u?'lock-open':'lock'}" style="color:${u?'var(--gold)':'var(--mid-brown)'}"></i></div>
-        <div class="card-title">${c.title}</div>
-        <div class="card-subtitle">${timeAgo(c.createdAt)}</div>
-        ${u ? `<div class="card-body">${c.message.substring(0,100)}...</div>` : `<div class="unlock-date">${formatUnlockDate(c.unlockDate)}</div>`}
-        <div class="card-footer"><span class="privacy-badge ${c.privacy}"><i class="fas fa-${c.privacy==='public'?'globe':'lock'}"></i> ${c.privacy}</span></div>
+  (async () => {
+    await requireAuth();
+    renderSidebar('dashboard');
+
+    const days = getDaysTogether();
+    const ann  = getNextAnniversary();
+    const heroEl = document.getElementById('daysHero');
+    if (days !== null) {
+      heroEl.innerHTML = `
+        <div class="days-hero">
+          <div>
+            <div class="days-num">${days.toLocaleString()}</div>
+            <div class="days-label">Days Together</div>
+            <div class="days-meta">Since ${formatDate(getSettings().startDate)}</div>
+          </div>
+          ${ann ? `<div class="ann-badge"><i class="fas fa-calendar-heart"></i> Anniversary in ${ann.days} day${ann.days !== 1 ? 's' : ''}</div>` : ''}
+        </div>`;
+    } else {
+      heroEl.innerHTML = `<div style="margin-bottom:1.5rem;padding:1rem;background:rgba(44,18,10,0.5);border-radius:12px;border:1px dashed rgba(212,169,106,0.2);text-align:center">
+        <a href="settings.html" style="color:var(--gold);font-size:0.88rem"><i class="fas fa-cog"></i> Set your relationship start date in Settings to see your days together</a>
       </div>`;
-    }).join('')}</div>`;
-  }
+    }
+
+    const q = quotes[Math.floor(Math.random() * quotes.length)];
+    document.getElementById('loveQuote').textContent = `"${q.text}"`;
+    document.getElementById('loveQuoteAuthor').textContent = `— ${q.author}`;
+
+    const [capsules, savedIdeas, letters, bucket] = await Promise.all([
+      getCapsules(), getSavedIdeas(), getLetters(), getBucketList()
+    ]);
+
+    document.getElementById('statsGrid').innerHTML = [
+      { icon:'fas fa-box-open',     value: capsules.length,                                          label:'Time Capsules'    },
+      { icon:'fas fa-envelope',     value: letters.filter(l => isLetterUnlocked(l)).length,          label:'Unlocked Letters' },
+      { icon:'fas fa-check-circle', value: bucket.filter(b=>b.completed).length+'/'+bucket.length,  label:'Bucket List'      },
+      { icon:'fas fa-bookmark',     value: savedIdeas.length,                                        label:'Saved Date Ideas' },
+    ].map(s => `<div class="stat-card">
+      <div class="stat-icon"><i class="${s.icon}"></i></div>
+      <div><div class="stat-value">${s.value}</div><div class="stat-label">${s.label}</div></div>
+    </div>`).join('');
+
+    await renderNotes();
+
+    const recentEl = document.getElementById('recentCapsules');
+    if (capsules.length === 0) {
+      recentEl.innerHTML = `<div class="empty-state" style="padding:2rem">
+        <div class="empty-icon"><i class="fas fa-box-open"></i></div>
+        <h3>No capsules yet</h3><p>Create your first time capsule</p></div>`;
+    } else {
+      recentEl.innerHTML = `<div class="card-grid">${capsules.slice(0,3).map(c => {
+        const u = isUnlocked(c);
+        return `<div class="card ${u?'':' card-locked'}">
+          <div class="lock-icon"><i class="fas fa-${u?'lock-open':'lock'}" style="color:${u?'var(--gold)':'var(--mid-brown)'}"></i></div>
+          <div class="card-title">${c.title}</div>
+          <div class="card-subtitle">${timeAgo(c.createdAt)}</div>
+          ${u ? `<div class="card-body">${c.message.substring(0,100)}...</div>` : `<div class="unlock-date">${formatUnlockDate(c.unlockDate)}</div>`}
+          <div class="card-footer"><span class="privacy-badge ${c.privacy}"><i class="fas fa-${c.privacy==='public'?'globe':'lock'}"></i> ${c.privacy}</span></div>
+        </div>`;
+      }).join('')}</div>`;
+    }
+  })();
 </script>
 </body>
 </html>

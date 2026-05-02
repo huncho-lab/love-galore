@@ -101,32 +101,37 @@
   </main>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/app.js"></script>
 <script>
-  if (!requireAuth()) void 0;
-  renderSidebar('settings');
+  (async () => {
+    await requireAuth();
+    renderSidebar('settings');
 
-  const user = getUser();
-  const settings = getSettings();
+    const user     = getUser();
+    const settings = getSettings();
 
-  // Pre-fill fields
-  document.getElementById('s-name').value      = user.name || '';
-  document.getElementById('s-spouse').value    = user.spouseName || '';
-  document.getElementById('s-email').value     = user.email || '';
-  document.getElementById('s-startDate').value = settings.startDate || '';
-  document.getElementById('s-apiKey').value    = settings.apiKey || '';
+    document.getElementById('s-name').value      = user.name || '';
+    document.getElementById('s-spouse').value    = user.spouseName || '';
+    const emailEl = document.getElementById('s-email');
+    emailEl.value    = user.email || '';
+    emailEl.readOnly = true;
+    emailEl.style.opacity = '0.6';
+    emailEl.style.cursor  = 'not-allowed';
+    document.getElementById('s-startDate').value = settings.startDate || '';
+    document.getElementById('s-apiKey').value    = settings.apiKey || '';
 
-  if (settings.couplePhoto) {
-    const img = document.getElementById('couplePhotoPreview');
-    img.src = settings.couplePhoto; img.style.display = 'block';
-  }
+    if (settings.couplePhoto) {
+      const img = document.getElementById('couplePhotoPreview');
+      img.src = settings.couplePhoto; img.style.display = 'block';
+    }
 
-  updateDaysPreview();
-
-  document.getElementById('s-startDate').addEventListener('change', updateDaysPreview);
+    updateDaysPreview();
+    document.getElementById('s-startDate').addEventListener('change', updateDaysPreview);
+  })();
 
   function updateDaysPreview() {
-    const d = document.getElementById('s-startDate').value;
+    const d  = document.getElementById('s-startDate').value;
     const el = document.getElementById('daysPreview');
     if (!d) { el.innerHTML = ''; return; }
     const days = Math.max(0, Math.floor((new Date() - new Date(d)) / 86400000));
@@ -139,40 +144,45 @@
     const src = await compressImage(input.files[0], 400, 0.75);
     const img = document.getElementById('couplePhotoPreview');
     img.src = src; img.style.display = 'block';
-    const s = getSettings(); s.couplePhoto = src; saveSettings(s);
+    await saveSettings({ couplePhoto: src });
     toast('Couple photo updated ♥', 'success');
   }
 
-  function removeCouplePhoto() {
+  async function removeCouplePhoto() {
     document.getElementById('couplePhotoPreview').style.display = 'none';
-    const s = getSettings(); s.couplePhoto = ''; saveSettings(s);
+    await saveSettings({ couplePhoto: '' });
     toast('Photo removed', 'info');
   }
 
-  function saveAllSettings() {
-    const name   = document.getElementById('s-name').value.trim();
-    const spouse = document.getElementById('s-spouse').value.trim();
-    const email  = document.getElementById('s-email').value.trim();
+  async function saveAllSettings() {
+    const name      = document.getElementById('s-name').value.trim();
+    const spouse    = document.getElementById('s-spouse').value.trim();
+    const startDate = document.getElementById('s-startDate').value;
+    const apiKey    = document.getElementById('s-apiKey').value.trim();
     if (!name || !spouse) { toast('Names cannot be empty', 'error'); return; }
-
-    const updatedUser = { ...getUser(), name, spouseName: spouse, email };
-    store.set('lg_user', updatedUser);
-    store.set('lg_user_db_' + email, { ...updatedUser, password: getUser().password });
-
-    const s = getSettings();
-    s.startDate = document.getElementById('s-startDate').value;
-    s.apiKey    = document.getElementById('s-apiKey').value.trim();
-    saveSettings(s);
-    toast('Settings saved ♥', 'success');
-    setTimeout(() => renderSidebar('settings'), 300);
+    try {
+      await saveSettings({ name, spouseName: spouse, startDate, apiKey });
+      toast('Settings saved ♥', 'success');
+      setTimeout(() => renderSidebar('settings'), 300);
+    } catch(e) {
+      toast('Failed to save: ' + e.message, 'error');
+    }
   }
 
-  function clearAllData() {
+  async function clearAllData() {
     if (!confirm('This will permanently delete ALL your data — capsules, letters, photos, story. Are you sure?')) return;
     if (!confirm('Last chance — this CANNOT be undone. Continue?')) return;
-    Object.keys(localStorage).filter(k => k.startsWith('lg_')).forEach(k => localStorage.removeItem(k));
-    toast('All data cleared', 'info');
-    setTimeout(() => window.location.href = 'index.html', 1200);
+    const uid = getUser().id;
+    await Promise.all([
+      db.from('capsules').delete().eq('user_id', uid),
+      db.from('letters').delete().eq('user_id', uid),
+      db.from('story').delete().eq('user_id', uid),
+      db.from('gallery').delete().eq('user_id', uid),
+      db.from('bucket_list').delete().eq('user_id', uid),
+      db.from('notes').delete().eq('user_id', uid),
+      db.from('saved_ideas').delete().eq('user_id', uid),
+    ]);
+    await logout();
   }
 </script>
 </body>

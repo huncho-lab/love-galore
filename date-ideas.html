@@ -156,10 +156,38 @@
   </main>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/app.js"></script>
 <script>
-  if (!requireAuth()) void 0;
-  renderSidebar('ai-generator');
+  let msgInterval;
+
+  (async () => {
+    await requireAuth();
+    renderSidebar('ai-generator');
+    await updateSavedCount();
+    const hash = location.hash.replace('#', '');
+    if (hash === 'saved') await showMode('saved');
+  })();
+
+  async function updateSavedCount() {
+    const ideas = await getSavedIdeas();
+    document.getElementById('savedCount').textContent = ideas.length > 0 ? `(${ideas.length})` : '';
+  }
+
+  async function showMode(name) {
+    document.getElementById('mode-generator').style.display = name === 'generator' ? 'block' : 'none';
+    document.getElementById('mode-saved').style.display = name === 'saved' ? 'block' : 'none';
+    document.querySelectorAll('.view-mode-btn').forEach((b, i) => {
+      b.classList.toggle('active', (i === 0 && name === 'generator') || (i === 1 && name === 'saved'));
+    });
+    if (name === 'saved') await renderSavedIdeas();
+  }
+
+  function toggleChip(el) { el.classList.toggle('selected'); }
+
+  function getSelectedFilters() {
+    return [...document.querySelectorAll('.chip.selected')].map(c => c.dataset.filter);
+  }
 
   const loadingMessages = [
     'Searching TripAdvisor for local gems...',
@@ -169,34 +197,6 @@
     'Adding a sprinkle of love magic... ♥',
     'Almost there — personalising your ideas...',
   ];
-
-  let msgInterval;
-
-  function updateSavedCount() {
-    const count = getSavedIdeas().length;
-    document.getElementById('savedCount').textContent = count > 0 ? `(${count})` : '';
-  }
-  updateSavedCount();
-
-  function showMode(name) {
-    document.getElementById('mode-generator').style.display = name === 'generator' ? 'block' : 'none';
-    document.getElementById('mode-saved').style.display = name === 'saved' ? 'block' : 'none';
-    document.querySelectorAll('.view-mode-btn').forEach((b, i) => {
-      b.classList.toggle('active', (i === 0 && name === 'generator') || (i === 1 && name === 'saved'));
-    });
-    if (name === 'saved') renderSavedIdeas();
-  }
-
-  const hash = location.hash.replace('#', '');
-  if (hash === 'saved') showMode('saved');
-
-  function toggleChip(el) {
-    el.classList.toggle('selected');
-  }
-
-  function getSelectedFilters() {
-    return [...document.querySelectorAll('.chip.selected')].map(c => c.dataset.filter);
-  }
 
   async function runGenerator() {
     const city = document.getElementById('cityInput').value.trim();
@@ -215,15 +215,26 @@
       loadingEl.textContent = loadingMessages[msgIdx];
     }, 1400);
 
-    await new Promise(r => setTimeout(r, 1800 + Math.random() * 1000));
+    const settings = getSettings();
+    let ideas;
+    try {
+      if (settings.apiKey) {
+        ideas = await generateDateIdeasAI(city, getSelectedFilters(), settings.apiKey);
+      } else {
+        await new Promise(r => setTimeout(r, 1800 + Math.random() * 1000));
+        ideas = generateDateIdeas(city, getSelectedFilters());
+      }
+    } catch(err) {
+      await new Promise(r => setTimeout(r, 1800));
+      ideas = generateDateIdeas(city, getSelectedFilters());
+      toast('AI unavailable — showing curated ideas instead', 'info');
+    }
 
     clearInterval(msgInterval);
     btn.disabled = false;
     document.getElementById('loadingState').style.display = 'none';
 
     const filters = getSelectedFilters();
-    const ideas = generateDateIdeas(city, filters);
-
     document.getElementById('resultsTitle').textContent = `Date Ideas for ${city} ♥`;
     document.getElementById('resultsMeta').textContent =
       `${ideas.length} ideas · ${filters.length > 0 ? filters.map(capitalise).join(', ') : 'All vibes'}`;
@@ -231,12 +242,11 @@
     const grid = document.getElementById('ideasGrid');
     grid.innerHTML = ideas.map((idea, i) => renderIdeaCard(idea, i)).join('');
     document.getElementById('resultsSection').style.display = 'block';
-
     grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  function renderSavedIdeas() {
-    const ideas = getSavedIdeas();
+  async function renderSavedIdeas() {
+    const ideas = await getSavedIdeas();
     const el = document.getElementById('savedIdeasList');
     if (ideas.length === 0) {
       el.innerHTML = `<div class="empty-state">
@@ -255,10 +265,10 @@
         </div>
         <span class="source-badge">${idea.source ? idea.source.split('·')[0].trim() : 'Saved'}</span>
         <div style="display:flex;gap:0.5rem">
-          <button class="btn-sm gold" onclick='expandIdea(${JSON.stringify(idea).replace(/'/g, "&#39;")})'>
+          <button class="btn-sm gold" onclick='expandIdea(${JSON.stringify(idea).replace(/'/g,"&#39;")})'>
             <i class="fas fa-eye"></i>
           </button>
-          <button class="btn-danger btn-sm" onclick="deleteIdea('${idea.title.replace(/'/g,"\\'")}')">
+          <button class="btn-danger btn-sm" onclick="deleteIdea('${idea.id}')">
             <i class="fas fa-trash"></i>
           </button>
         </div>
@@ -267,7 +277,6 @@
   }
 
   function expandIdea(idea) {
-    // Show a quick modal with full idea details
     let modal = document.getElementById('ideaExpandModal');
     if (!modal) {
       modal = document.createElement('div');
@@ -301,18 +310,17 @@
     modal.classList.add('open');
   }
 
-  function deleteIdea(title) {
-    removeSavedIdea(title);
-    updateSavedCount();
-    renderSavedIdeas();
+  async function deleteIdea(id) {
+    await removeSavedIdea(id);
+    await updateSavedCount();
+    await renderSavedIdeas();
     toast('Idea removed', 'info');
   }
 
-  // Override saveIdea to also update count
   const _origSaveIdea = saveIdea;
-  window.saveIdea = function(idea) {
-    _origSaveIdea(idea);
-    updateSavedCount();
+  window.saveIdea = async function(idea) {
+    await _origSaveIdea(idea);
+    await updateSavedCount();
   };
 </script>
 </body>

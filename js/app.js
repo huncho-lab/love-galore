@@ -1,22 +1,38 @@
-/* ===== LOVE GALORE — CORE APP LOGIC ===== */
+/* ===== LOVE GALORE — CORE APP LOGIC (Supabase Edition) ===== */
 
-// ─── LocalStorage Helpers ────────────────────────────────────────────────────
-const store = {
-  get: (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
-  set: (k, v) => localStorage.setItem(k, JSON.stringify(v)),
-  del: (k) => localStorage.removeItem(k),
-};
+// ─── Supabase Client ──────────────────────────────────────────────────────────
+const SUPA_URL = 'https://bcqnlwonmwudrhcbtvww.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJjcW5sd29ubXd1ZHJoY2J0dnd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NDY1OTgsImV4cCI6MjA5MzMyMjU5OH0.lmyNDjzP2r-0bGbbzbbk9sQogo6neQhpZUIdKzwMPU0';
+const db = window.supabase.createClient(SUPA_URL, SUPA_KEY);
 
-// ─── Auth ─────────────────────────────────────────────────────────────────────
-function getUser() { return store.get('lg_user'); }
+// ─── Auth Cache ───────────────────────────────────────────────────────────────
+let _user = null;
 
-function requireAuth() {
-  if (!getUser()) { window.location.href = 'login.html'; return false; }
-  return true;
+async function initApp(redirect = true) {
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) {
+    if (redirect) window.location.href = 'login.html';
+    return null;
+  }
+  const { data: p } = await db.from('profiles').select('*').eq('id', session.user.id).single();
+  _user = {
+    id: session.user.id,
+    email: session.user.email,
+    name: p?.name || '',
+    spouseName: p?.spouse_name || '',
+    couplePhoto: p?.couple_photo || '',
+    startDate: p?.start_date || '',
+    apiKey: p?.api_key || '',
+  };
+  return _user;
 }
 
-function logout() {
-  store.del('lg_user');
+function getUser() { return _user; }
+async function requireAuth() { return await initApp(true); }
+
+async function logout() {
+  await db.auth.signOut();
+  _user = null;
   document.body.classList.add('exit');
   setTimeout(() => window.location.href = 'index.html', 400);
 }
@@ -35,7 +51,10 @@ function toast(msg, type = 'info', duration = 3200) {
   el.className = `toast ${type}`;
   el.innerHTML = `<span>${icons[type]}</span> ${msg}`;
   container.appendChild(el);
-  setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateX(40px)'; el.style.transition = '0.3s'; setTimeout(() => el.remove(), 300); }, duration);
+  setTimeout(() => {
+    el.style.opacity = '0'; el.style.transform = 'translateX(40px)';
+    el.style.transition = '0.3s'; setTimeout(() => el.remove(), 300);
+  }, duration);
 }
 
 // ─── Page Transition ──────────────────────────────────────────────────────────
@@ -54,25 +73,25 @@ function renderSidebar(activePage) {
     {
       id: 'capsules', icon: 'fa-box-open', label: 'Time Capsules',
       children: [
-        { label: 'My Capsules',    href: 'time-capsules.html',        id: 'my-capsules'    },
-        { label: 'Create New',     href: 'time-capsules.html#create', id: 'create-capsule' },
-        { label: 'Public Capsules',href: 'time-capsules.html#public', id: 'public-capsules'},
+        { label: 'My Capsules',     href: 'time-capsules.html',        id: 'my-capsules'    },
+        { label: 'Create New',      href: 'time-capsules.html#create', id: 'create-capsule' },
+        { label: 'Public Capsules', href: 'time-capsules.html#public', id: 'public-capsules'},
       ]
     },
     {
       id: 'letters', icon: 'fa-envelope', label: 'Love Letters',
       children: [
-        { label: 'Inbox',         href: 'love-letters.html',        id: 'letters-inbox' },
-        { label: 'Write a Letter',href: 'love-letters.html#write',   id: 'letters-write' },
-        { label: 'Sent',          href: 'love-letters.html#sent',    id: 'letters-sent'  },
+        { label: 'Inbox',          href: 'love-letters.html',       id: 'letters-inbox' },
+        { label: 'Write a Letter', href: 'love-letters.html#write', id: 'letters-write' },
+        { label: 'Sent',           href: 'love-letters.html#sent',  id: 'letters-sent'  },
       ]
     },
     {
       id: 'story', icon: 'fa-book-open', label: 'Our Story',
       children: [
-        { label: 'How We Met',  href: 'our-story.html',           id: 'how-met'   },
-        { label: 'About Us',    href: 'our-story.html#about',     id: 'about-us'  },
-        { label: 'Our Timeline',href: 'our-story.html#timeline',  id: 'timeline'  },
+        { label: 'How We Met',   href: 'our-story.html',          id: 'how-met'  },
+        { label: 'About Us',     href: 'our-story.html#about',    id: 'about-us' },
+        { label: 'Our Timeline', href: 'our-story.html#timeline', id: 'timeline' },
       ]
     },
     { id: 'gallery',  icon: 'fa-camera-retro', label: 'Our Gallery',   href: 'gallery.html'     },
@@ -81,23 +100,21 @@ function renderSidebar(activePage) {
     {
       id: 'dates', icon: 'fa-heart', label: 'Date Ideas',
       children: [
-        { label: 'Generator',    href: 'date-ideas.html',        id: 'ai-generator' },
-        { label: 'Saved Ideas',  href: 'date-ideas.html#saved',  id: 'saved-ideas'  },
+        { label: 'Generator',   href: 'date-ideas.html',       id: 'ai-generator' },
+        { label: 'Saved Ideas', href: 'date-ideas.html#saved', id: 'saved-ideas'  },
       ]
     },
-    { id: 'search',   icon: 'fa-search',       label: 'Search',        href: 'search.html'      },
-    { id: 'settings', icon: 'fa-cog',           label: 'Settings',      href: 'settings.html'    },
+    { id: 'search',   icon: 'fa-search', label: 'Search',   href: 'search.html'   },
+    { id: 'settings', icon: 'fa-cog',    label: 'Settings', href: 'settings.html' },
   ];
 
-  const settings = getSettings();
-  const couplePhoto = settings.couplePhoto || '';
   const days = getDaysTogether();
 
   const sidebarHTML = `
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
-        ${couplePhoto
-          ? `<div class="sidebar-couple-photo"><img src="${couplePhoto}" alt="us"></div>`
+        ${user.couplePhoto
+          ? `<div class="sidebar-couple-photo"><img src="${user.couplePhoto}" alt="us"></div>`
           : `<div class="logo-icon"><i class="fas fa-heart"></i></div>`}
         <h2>Love Galore</h2>
         ${days !== null ? `<div class="sidebar-days">${days} days together ♥</div>` : ''}
@@ -147,53 +164,62 @@ function renderSidebar(activePage) {
   const container = document.getElementById('sidebarContainer');
   if (container) container.innerHTML = sidebarHTML;
 
-  // Close sidebar when clicking outside on mobile
   document.addEventListener('click', (e) => {
-    const sb = document.getElementById('sidebar');
-    const toggle = document.getElementById('sidebarToggle');
-    if (window.innerWidth <= 768 && sb && sb.classList.contains('open')) {
-      if (!sb.contains(e.target) && e.target !== toggle) sb.classList.remove('open');
+    const sidebar = document.getElementById('sidebar');
+    const toggle  = document.getElementById('sidebarToggle');
+    if (window.innerWidth <= 768 && sidebar && sidebar.classList.contains('open')) {
+      if (!sidebar.contains(e.target) && e.target !== toggle) sidebar.classList.remove('open');
     }
   });
 }
 
 function toggleNav(id) {
   const item = document.getElementById(id);
-  if (!item) return;
-  item.classList.toggle('open');
+  if (item) item.classList.toggle('open');
 }
 
 function toggleSidebar() {
-  const sb = document.getElementById('sidebar');
-  if (sb) sb.classList.toggle('open');
+  const sidebar = document.getElementById('sidebar');
+  if (sidebar) sidebar.classList.toggle('open');
 }
 
 // ─── Time Capsules ────────────────────────────────────────────────────────────
-function getCapsules() { return store.get('lg_capsules') || []; }
-function saveCapsules(c) { store.set('lg_capsules', c); }
+async function getCapsules() {
+  const { data } = await db.from('capsules').select('*').eq('user_id', _user.id).order('created_at', { ascending: false });
+  return (data || []).map(r => ({
+    id: r.id, title: r.title, message: r.message,
+    unlockDate: r.unlock_date, privacy: r.privacy,
+    createdAt: r.created_at, createdBy: r.created_by,
+  }));
+}
 
-function createCapsule(data) {
-  const capsules = getCapsules();
-  const user = getUser();
-  const capsule = {
+async function createCapsule(data) {
+  const row = {
     id: Date.now().toString(),
-    ...data,
-    createdAt: new Date().toISOString(),
-    createdBy: user ? user.name : 'Unknown',
+    user_id: _user.id,
+    title: data.title,
+    message: data.message,
+    unlock_date: data.unlockDate,
+    privacy: data.privacy || 'private',
+    created_by: _user.name,
+    created_at: new Date().toISOString(),
   };
-  capsules.unshift(capsule);
-  saveCapsules(capsules);
-  return capsule;
+  const { error } = await db.from('capsules').insert(row);
+  if (error) throw error;
+  return { id: row.id, title: row.title, message: row.message, unlockDate: row.unlock_date, privacy: row.privacy, createdAt: row.created_at, createdBy: row.created_by };
 }
 
-function deleteCapsule(id) {
-  const capsules = getCapsules().filter(c => c.id !== id);
-  saveCapsules(capsules);
+async function deleteCapsule(id) {
+  await db.from('capsules').delete().eq('id', id).eq('user_id', _user.id);
 }
 
-function isUnlocked(capsule) {
-  return new Date(capsule.unlockDate) <= new Date();
+async function updateCapsule(id, updates) {
+  const row = {};
+  if (updates.privacy !== undefined) row.privacy = updates.privacy;
+  await db.from('capsules').update(row).eq('id', id).eq('user_id', _user.id);
 }
+
+function isUnlocked(capsule) { return new Date(capsule.unlockDate) <= new Date(); }
 
 function formatUnlockDate(dateStr) {
   const d = new Date(dateStr);
@@ -209,30 +235,63 @@ function formatUnlockDate(dateStr) {
 }
 
 // ─── Our Story ────────────────────────────────────────────────────────────────
-function getStory() {
-  return store.get('lg_story') || {
-    howWeMet: '',
-    aboutPartner1: '',
-    aboutPartner2: '',
-    timeline: [],
+async function getStory() {
+  const { data } = await db.from('story').select('*').eq('user_id', _user.id).single();
+  if (!data) return { howWeMet: '', aboutPartner1: '', aboutPartner2: '', timeline: [] };
+  return {
+    howWeMet: data.how_we_met || '',
+    aboutPartner1: data.about_partner1 || '',
+    aboutPartner2: data.about_partner2 || '',
+    timeline: data.timeline || [],
   };
 }
-function saveStory(s) { store.set('lg_story', s); }
+
+async function saveStory(s) {
+  const { error } = await db.from('story').upsert({
+    user_id: _user.id,
+    how_we_met: s.howWeMet,
+    about_partner1: s.aboutPartner1,
+    about_partner2: s.aboutPartner2,
+    timeline: s.timeline,
+  }, { onConflict: 'user_id' });
+  if (error) throw error;
+}
 
 // ─── Saved Date Ideas ─────────────────────────────────────────────────────────
-function getSavedIdeas() { return store.get('lg_saved_ideas') || []; }
-function saveIdea(idea) {
-  const ideas = getSavedIdeas();
-  if (ideas.find(i => i.title === idea.title)) { toast('Already saved!', 'info'); return; }
-  ideas.unshift({ ...idea, savedAt: new Date().toISOString() });
-  store.set('lg_saved_ideas', ideas);
-  toast('Date idea saved! ♥', 'success');
-}
-function removeSavedIdea(title) {
-  store.set('lg_saved_ideas', getSavedIdeas().filter(i => i.title !== title));
+async function getSavedIdeas() {
+  const { data } = await db.from('saved_ideas').select('*').eq('user_id', _user.id).order('saved_at', { ascending: false });
+  return (data || []).map(r => ({
+    id: r.id, title: r.title, emoji: r.emoji,
+    description: r.description, source: r.source,
+    cost: r.cost, duration: r.duration,
+    bestTime: r.best_time, vibe: r.vibe,
+    tips: r.tips || [], category: r.category,
+    savedAt: r.saved_at,
+  }));
 }
 
-// ─── AI Date Ideas Generator ──────────────────────────────────────────────────
+async function saveIdea(idea) {
+  const existing = await getSavedIdeas();
+  if (existing.find(i => i.title === idea.title)) { toast('Already saved!', 'info'); return; }
+  const { error } = await db.from('saved_ideas').insert({
+    id: Date.now().toString(),
+    user_id: _user.id,
+    title: idea.title, emoji: idea.emoji,
+    description: idea.description, source: idea.source,
+    cost: idea.cost, duration: idea.duration,
+    best_time: idea.bestTime, vibe: idea.vibe,
+    tips: idea.tips || [], category: idea.category,
+    saved_at: new Date().toISOString(),
+  });
+  if (error) { toast('Could not save idea', 'error'); return; }
+  toast('Date idea saved! ♥', 'success');
+}
+
+async function removeSavedIdea(id) {
+  await db.from('saved_ideas').delete().eq('id', id).eq('user_id', _user.id);
+}
+
+// ─── Date Ideas Generator (Template-Based) ────────────────────────────────────
 const dateTemplates = {
   dining: [
     {
@@ -492,16 +551,12 @@ const dateTemplates = {
 
 function generateDateIdeas(city, selectedFilters) {
   const results = [];
-  const filters = selectedFilters.length > 0
-    ? selectedFilters
-    : Object.keys(dateTemplates);
-
+  const filters = selectedFilters.length > 0 ? selectedFilters : Object.keys(dateTemplates);
   filters.forEach(filter => {
     const pool = dateTemplates[filter];
     if (!pool) return;
     const shuffled = [...pool].sort(() => Math.random() - 0.5);
-    const picks = shuffled.slice(0, 2);
-    picks.forEach(idea => {
+    shuffled.slice(0, 2).forEach(idea => {
       results.push({
         ...idea,
         description: idea.description.replace(/\{city\}/g, city || 'your city'),
@@ -510,7 +565,6 @@ function generateDateIdeas(city, selectedFilters) {
       });
     });
   });
-
   return results.sort(() => Math.random() - 0.5);
 }
 
@@ -564,22 +618,31 @@ function formatDate(dateStr) {
 }
 
 // ─── Gallery ──────────────────────────────────────────────────────────────────
-function getGallery() { return store.get('lg_gallery') || []; }
-function saveGallery(g) { store.set('lg_gallery', g); }
-
-function addPhoto(src, caption) {
-  const user = getUser();
-  const gallery = getGallery();
-  gallery.unshift({ id: Date.now().toString(), src, caption, uploadedAt: new Date().toISOString(), uploadedBy: user ? user.name : 'Unknown' });
-  saveGallery(gallery);
+async function getGallery() {
+  const { data } = await db.from('gallery').select('*').eq('user_id', _user.id).order('uploaded_at', { ascending: false });
+  return (data || []).map(r => ({
+    id: r.id, src: r.src, caption: r.caption,
+    uploadedAt: r.uploaded_at, uploadedBy: r.uploaded_by,
+  }));
 }
 
-function deletePhoto(id) {
-  saveGallery(getGallery().filter(p => p.id !== id));
+async function addPhoto(src, caption) {
+  const { error } = await db.from('gallery').insert({
+    id: Date.now().toString() + '_' + Math.random().toString(36).slice(2, 6),
+    user_id: _user.id,
+    src, caption: caption || '',
+    uploaded_by: _user.name,
+    uploaded_at: new Date().toISOString(),
+  });
+  if (error) throw error;
 }
 
-function updateCaption(id, caption) {
-  saveGallery(getGallery().map(p => p.id === id ? { ...p, caption } : p));
+async function deletePhoto(id) {
+  await db.from('gallery').delete().eq('id', id).eq('user_id', _user.id);
+}
+
+async function updateCaption(id, caption) {
+  await db.from('gallery').update({ caption }).eq('id', id).eq('user_id', _user.id);
 }
 
 async function compressImage(file, maxDim = 1200, quality = 0.78) {
@@ -608,116 +671,161 @@ async function compressImage(file, maxDim = 1200, quality = 0.78) {
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
 function getSettings() {
-  return store.get('lg_settings') || { startDate: '', apiKey: '', couplePhoto: '' };
+  return {
+    startDate: _user?.startDate || '',
+    couplePhoto: _user?.couplePhoto || '',
+    apiKey: _user?.apiKey || '',
+  };
 }
-function saveSettings(s) { store.set('lg_settings', s); }
+
+async function saveSettings(s) {
+  const row = {};
+  if (s.startDate   !== undefined) { row.start_date   = s.startDate;   _user.startDate   = s.startDate; }
+  if (s.couplePhoto !== undefined) { row.couple_photo  = s.couplePhoto; _user.couplePhoto = s.couplePhoto; }
+  if (s.apiKey      !== undefined) { row.api_key       = s.apiKey;      _user.apiKey      = s.apiKey; }
+  if (s.name        !== undefined) { row.name          = s.name;        _user.name        = s.name; }
+  if (s.spouseName  !== undefined) { row.spouse_name   = s.spouseName;  _user.spouseName  = s.spouseName; }
+  if (Object.keys(row).length > 0) {
+    const { error } = await db.from('profiles').update(row).eq('id', _user.id);
+    if (error) throw error;
+  }
+}
 
 function getDaysTogether() {
-  const s = getSettings();
-  if (!s.startDate) return null;
-  return Math.max(0, Math.floor((new Date() - new Date(s.startDate)) / 86400000));
+  if (!_user?.startDate) return null;
+  return Math.max(0, Math.floor((new Date() - new Date(_user.startDate)) / 86400000));
 }
 
 function getNextAnniversary() {
-  const s = getSettings();
-  if (!s.startDate) return null;
-  const start = new Date(s.startDate);
-  const now = new Date();
+  if (!_user?.startDate) return null;
+  const start = new Date(_user.startDate);
+  const now   = new Date();
   const thisYear = new Date(now.getFullYear(), start.getMonth(), start.getDate());
-  const ann = thisYear < now ? new Date(now.getFullYear() + 1, start.getMonth(), start.getDate()) : thisYear;
+  const ann = thisYear < now
+    ? new Date(now.getFullYear() + 1, start.getMonth(), start.getDate())
+    : thisYear;
   return { date: ann, days: Math.ceil((ann - now) / 86400000) };
 }
 
 // ─── Export / Import ──────────────────────────────────────────────────────────
-function exportData() {
-  const data = {};
-  Object.keys(localStorage).filter(k => k.startsWith('lg_')).forEach(k => { data[k] = localStorage.getItem(k); });
+async function exportData() {
+  toast('Preparing backup...', 'info');
+  const [capsules, letters, story, gallery, bucket, notes, ideas] = await Promise.all([
+    getCapsules(), getLetters(), getStory(), getGallery(),
+    getBucketList(), getNotes(), getSavedIdeas(),
+  ]);
+  const data = {
+    capsules, letters, story, gallery, bucket, notes, ideas,
+    settings: getSettings(), exportedAt: new Date().toISOString(),
+  };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'love-galore-backup-' + new Date().toISOString().slice(0,10) + '.json';
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = 'love-galore-backup-' + new Date().toISOString().slice(0, 10) + '.json';
   a.click(); URL.revokeObjectURL(url);
   toast('Backup downloaded ♥', 'success');
 }
 
 function importData(file) {
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    try {
-      const data = JSON.parse(e.target.result);
-      if (typeof data !== 'object') throw new Error();
-      Object.entries(data).forEach(([k, v]) => { if (k.startsWith('lg_')) localStorage.setItem(k, v); });
-      toast('Data restored! Reloading...', 'success');
-      setTimeout(() => location.reload(), 1500);
-    } catch { toast('Invalid backup file', 'error'); }
-  };
-  reader.readAsText(file);
+  toast('Import is not yet supported in cloud mode — use the backup to review your data.', 'info', 5000);
 }
 
 // ─── Love Letters ─────────────────────────────────────────────────────────────
-function getLetters() { return store.get('lg_letters') || []; }
-function saveLetters(l) { store.set('lg_letters', l); }
+async function getLetters() {
+  const { data } = await db.from('letters').select('*').eq('user_id', _user.id).order('created_at', { ascending: false });
+  return (data || []).map(r => ({
+    id: r.id, from: r.from_name, to: r.to_name,
+    subject: r.subject, body: r.body,
+    unlockDate: r.unlock_date, privacy: r.privacy,
+    createdAt: r.created_at,
+  }));
+}
 
-function createLetter(data) {
-  const user = getUser();
-  const letter = { id: Date.now().toString(), ...data, createdAt: new Date().toISOString(), from: user.name };
-  const letters = getLetters(); letters.unshift(letter); saveLetters(letters);
-  return letter;
+async function createLetter(data) {
+  const row = {
+    id: Date.now().toString(),
+    user_id: _user.id,
+    from_name: _user.name,
+    to_name: data.to,
+    subject: data.subject,
+    body: data.body,
+    unlock_date: data.unlockDate,
+    privacy: data.privacy || 'private',
+    created_at: new Date().toISOString(),
+  };
+  const { error } = await db.from('letters').insert(row);
+  if (error) throw error;
+  return { id: row.id, from: row.from_name, to: row.to_name, subject: row.subject, body: row.body, unlockDate: row.unlock_date, privacy: row.privacy, createdAt: row.created_at };
 }
 
 function isLetterUnlocked(letter) { return new Date(letter.unlockDate) <= new Date(); }
 
-function deleteLetter(id) { saveLetters(getLetters().filter(l => l.id !== id)); }
+async function deleteLetter(id) {
+  await db.from('letters').delete().eq('id', id).eq('user_id', _user.id);
+}
 
 // ─── Bucket List ──────────────────────────────────────────────────────────────
-function getBucketList() { return store.get('lg_bucket') || []; }
-function saveBucketList(b) { store.set('lg_bucket', b); }
-
-function addBucketItem(data) {
-  const items = getBucketList();
-  items.unshift({ id: Date.now().toString(), ...data, createdAt: new Date().toISOString(), completed: false });
-  saveBucketList(items);
+async function getBucketList() {
+  const { data } = await db.from('bucket_list').select('*').eq('user_id', _user.id).order('created_at', { ascending: false });
+  return (data || []).map(r => ({
+    id: r.id, title: r.title, category: r.category,
+    note: r.note, targetDate: r.target_date,
+    completed: r.completed, completedAt: r.completed_at,
+    createdAt: r.created_at,
+  }));
 }
 
-function toggleBucketItem(id) {
-  saveBucketList(getBucketList().map(i => i.id === id ? { ...i, completed: !i.completed, completedAt: !i.completed ? new Date().toISOString() : null } : i));
+async function addBucketItem(data) {
+  const { error } = await db.from('bucket_list').insert({
+    id: Date.now().toString(),
+    user_id: _user.id,
+    title: data.title, category: data.category || 'Other',
+    note: data.note || '', target_date: data.targetDate || '',
+    completed: false, completed_at: '',
+    created_at: new Date().toISOString(),
+  });
+  if (error) throw error;
 }
 
-function deleteBucketItem(id) { saveBucketList(getBucketList().filter(i => i.id !== id)); }
+async function toggleBucketItem(id) {
+  const items = await getBucketList();
+  const item  = items.find(i => i.id === id);
+  if (!item) return;
+  const newCompleted = !item.completed;
+  await db.from('bucket_list').update({
+    completed: newCompleted,
+    completed_at: newCompleted ? new Date().toISOString() : '',
+  }).eq('id', id).eq('user_id', _user.id);
+}
+
+async function deleteBucketItem(id) {
+  await db.from('bucket_list').delete().eq('id', id).eq('user_id', _user.id);
+}
 
 // ─── Quick Notes ──────────────────────────────────────────────────────────────
-function getNotes() { return store.get('lg_notes') || []; }
-function saveNotes(n) { store.set('lg_notes', n); }
-
-function addNote(text) {
-  const user = getUser();
-  const notes = getNotes();
-  notes.unshift({ id: Date.now().toString(), text, createdAt: new Date().toISOString(), by: user ? user.name : '' });
-  if (notes.length > 30) notes.pop();
-  saveNotes(notes);
+async function getNotes() {
+  const { data } = await db.from('notes').select('*').eq('user_id', _user.id).order('created_at', { ascending: false });
+  return (data || []).map(r => ({ id: r.id, text: r.text, by: r.by_name, createdAt: r.created_at }));
 }
 
-function deleteNote(id) { saveNotes(getNotes().filter(n => n.id !== id)); }
+async function addNote(text) {
+  const { error } = await db.from('notes').insert({
+    id: Date.now().toString(),
+    user_id: _user.id,
+    text, by_name: _user.name,
+    created_at: new Date().toISOString(),
+  });
+  if (error) throw error;
+}
+
+async function deleteNote(id) {
+  await db.from('notes').delete().eq('id', id).eq('user_id', _user.id);
+}
 
 // ─── Claude API Date Ideas ────────────────────────────────────────────────────
 async function generateDateIdeasAI(city, filters, apiKey) {
   const filterNames = filters.length > 0 ? filters.join(', ') : 'dining, outdoor, arts, adventure, cozy, unique';
-  const prompt = `You are a romantic date planner. Generate 6 creative, specific date ideas for a couple in ${city}. Activity types to include: ${filterNames}.
-
-For each idea return a JSON object with these exact fields:
-- emoji: one relevant emoji
-- title: catchy romantic title (max 6 words)
-- description: 2-3 vivid romantic sentences, mention ${city} specifically
-- source: real platforms like "TripAdvisor · Yelp" or "Airbnb Experiences · GetYourGuide"
-- cost: one of "$", "$$", "$$$", "$$$$"
-- duration: e.g. "2-3 hours"
-- bestTime: e.g. "Evening" or "Sunset"
-- vibe: short mood phrase e.g. "Elegant & Intimate"
-- tips: array of exactly 4 short romantic practical tips
-- category: one of: dining, outdoor, arts, adventure, cozy, unique
-
-Return ONLY a valid JSON array of 6 objects. No markdown fences, no explanation.`;
-
+  const prompt = `You are a romantic date planner. Generate 6 creative, specific date ideas for a couple in ${city}. Activity types: ${filterNames}. Return ONLY a valid JSON array of 6 objects with fields: emoji, title, description, source, cost, duration, bestTime, vibe, tips (array of 4), category.`;
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -726,20 +834,12 @@ Return ONLY a valid JSON array of 6 objects. No markdown fences, no explanation.
       'anthropic-version': '2023-06-01',
       'anthropic-dangerous-direct-browser-access': 'true',
     },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 3000,
-      messages: [{ role: 'user', content: prompt }]
-    })
+    body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 3000, messages: [{ role: 'user', content: prompt }] })
   });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error?.message || `API error ${res.status}`);
-  }
+  if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error?.message || `API error ${res.status}`); }
   const data = await res.json();
   const text = data.content[0].text.trim();
   const match = text.match(/\[[\s\S]*\]/);
-  if (!match) throw new Error('Unexpected AI response — try again');
+  if (!match) throw new Error('Unexpected response');
   return JSON.parse(match[0]);
 }

@@ -69,8 +69,8 @@
     <!-- Login Form -->
     <form class="auth-form" id="loginForm" onsubmit="handleLogin(event)">
       <div class="form-group">
-        <label><i class="fas fa-user"></i> Your Name or Spouse's Name</label>
-        <input type="text" id="login-name" placeholder="Either partner's name" required>
+        <label><i class="fas fa-envelope"></i> Email Address</label>
+        <input type="email" id="login-email" placeholder="your@email.com" required>
       </div>
       <div class="form-group">
         <label><i class="fas fa-lock"></i> Password</label>
@@ -82,9 +82,13 @@
     </form>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/app.js"></script>
   <script>
-    if (getUser()) window.location.href = 'dashboard.html';
+    (async () => {
+      const user = await initApp(false);
+      if (user) window.location.href = 'dashboard.html';
+    })();
 
     function spawnHeart() {
       const el = document.createElement('div');
@@ -99,45 +103,50 @@
     }
     setInterval(spawnHeart, 1200);
 
-    const tabs = document.querySelectorAll('.auth-tab');
+    const tabs  = document.querySelectorAll('.auth-tab');
     const forms = document.querySelectorAll('.auth-form');
 
     function switchTab(name) {
       tabs.forEach((t, i) => {
-        const match = (i === 0 && name === 'register') || (i === 1 && name === 'login');
-        t.classList.toggle('active', match);
+        t.classList.toggle('active', (i === 0 && name === 'register') || (i === 1 && name === 'login'));
       });
       forms.forEach(f => f.classList.remove('active'));
       document.getElementById(name === 'register' ? 'registerForm' : 'loginForm').classList.add('active');
     }
 
-    function handleRegister(e) {
+    async function handleRegister(e) {
       e.preventDefault();
       const name     = document.getElementById('reg-name').value.trim();
       const spouse   = document.getElementById('reg-spouse').value.trim();
       const email    = document.getElementById('reg-email').value.trim();
       const password = document.getElementById('reg-password').value;
-
-      const userData = { name, spouseName: spouse, email, password };
-      store.set('lg_user', userData);
-      // Index by both names (lowercase) so either can sign in
-      store.set('lg_user_db_' + name.toLowerCase(), userData);
-      store.set('lg_user_db_' + spouse.toLowerCase(), userData);
+      const btn = e.target.querySelector('button[type=submit]');
+      btn.disabled = true; btn.textContent = 'Creating account...';
+      const { data, error } = await db.auth.signUp({ email, password });
+      if (error) {
+        toast(error.message, 'error');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-heart"></i> &nbsp;Begin Our Story';
+        return;
+      }
+      await db.from('profiles').insert({ id: data.user.id, name, spouse_name: spouse });
       toast('Welcome to Love Galore! ♥', 'success');
       setTimeout(() => { document.body.classList.add('exit'); setTimeout(() => window.location.href = 'dashboard.html', 450); }, 600);
     }
 
-    function handleLogin(e) {
+    async function handleLogin(e) {
       e.preventDefault();
-      const name     = document.getElementById('login-name').value.trim().toLowerCase();
+      const email    = document.getElementById('login-email').value.trim();
       const password = document.getElementById('login-password').value;
-
-      const stored = store.get('lg_user_db_' + name);
-      if (!stored || stored.password !== password) {
-        toast('Name or password is incorrect', 'error');
+      const btn = e.target.querySelector('button[type=submit]');
+      btn.disabled = true; btn.textContent = 'Signing in...';
+      const { error } = await db.auth.signInWithPassword({ email, password });
+      if (error) {
+        toast('Email or password is incorrect', 'error');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> &nbsp;Sign In';
         return;
       }
-      store.set('lg_user', stored);
       toast('Welcome back! ♥', 'success');
       setTimeout(() => { document.body.classList.add('exit'); setTimeout(() => window.location.href = 'dashboard.html', 450); }, 600);
     }

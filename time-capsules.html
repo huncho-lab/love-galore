@@ -128,154 +128,127 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/app.js"></script>
 <script>
-  if (!requireAuth()) void 0;
+  let _capsules = [];
 
-  renderSidebar('my-capsules');
-
-  // Set min date for unlock to tomorrow
-  const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
-  document.getElementById('cap-date').min = tomorrow.toISOString().split('T')[0];
-
-  function showView(name) {
-    ['my', 'create', 'public'].forEach(v => {
-      document.getElementById('view-' + v).style.display = v === name ? 'block' : 'none';
-    });
-    document.querySelectorAll('.view-tab').forEach((t, i) => {
-      t.classList.toggle('active', ['my','create','public'][i] === name);
-    });
-    if (name === 'my') renderMyCapsules();
-    if (name === 'public') renderPublicCapsules();
-  }
-
-  // Auto-open create if hash is #create, public if #public
-  const hash = location.hash.replace('#', '');
-  if (hash === 'create') showView('create');
-  else if (hash === 'public') showView('public');
-  else renderMyCapsules();
-
-  function renderMyCapsules() {
+  async function renderMyCapsules() {
+    _capsules = await getCapsules();
     const user = getUser();
-    let capsules = getCapsules().filter(c => c.createdBy === user.name);
-    const statusFilter = document.getElementById('filterStatus').value;
-    const privacyFilter = document.getElementById('filterPrivacy').value;
-
-    if (statusFilter === 'locked')   capsules = capsules.filter(c => !isUnlocked(c));
-    if (statusFilter === 'unlocked') capsules = capsules.filter(c => isUnlocked(c));
-    if (privacyFilter !== 'all')     capsules = capsules.filter(c => c.privacy === privacyFilter);
-
+    let caps = _capsules.filter(c => c.createdBy === user.name);
+    const sf = document.getElementById('filterStatus').value;
+    const pf = document.getElementById('filterPrivacy').value;
+    if (sf === 'locked')   caps = caps.filter(c => !isUnlocked(c));
+    if (sf === 'unlocked') caps = caps.filter(c => isUnlocked(c));
+    if (pf !== 'all')      caps = caps.filter(c => c.privacy === pf);
     const el = document.getElementById('myCapsulesList');
-    if (capsules.length === 0) {
-      el.innerHTML = `<div class="empty-state">
-        <div class="empty-icon"><i class="fas fa-box-open"></i></div>
-        <h3>No capsules here yet</h3>
-        <p>Create your first capsule and seal a beautiful memory</p>
-      </div>`;
+    if (caps.length === 0) {
+      el.innerHTML = `<div class="empty-state"><div class="empty-icon"><i class="fas fa-box-open"></i></div><h3>No capsules here yet</h3><p>Create your first capsule and seal a beautiful memory</p></div>`;
       return;
     }
-    el.innerHTML = `<div class="card-grid">${capsules.map(capsule => buildCapsuleCard(capsule, true)).join('')}</div>`;
+    el.innerHTML = `<div class="card-grid">${caps.map(c => buildCapsuleCard(c, true)).join('')}</div>`;
   }
 
-  function renderPublicCapsules() {
-    const capsules = getCapsules().filter(c => c.privacy === 'public');
+  async function renderPublicCapsules() {
+    const caps = _capsules.filter(c => c.privacy === 'public');
     const el = document.getElementById('publicCapsulesList');
-    if (capsules.length === 0) {
-      el.innerHTML = `<div class="empty-state">
-        <div class="empty-icon"><i class="fas fa-globe"></i></div>
-        <h3>No public capsules yet</h3>
-        <p>Create a public capsule and share your love story with the world</p>
-      </div>`;
+    if (caps.length === 0) {
+      el.innerHTML = `<div class="empty-state"><div class="empty-icon"><i class="fas fa-globe"></i></div><h3>No public capsules yet</h3><p>Create a public capsule and share your love story with the world</p></div>`;
       return;
     }
-    el.innerHTML = `<div class="card-grid">${capsules.map(c => buildCapsuleCard(c, false)).join('')}</div>`;
+    el.innerHTML = `<div class="card-grid">${caps.map(c => buildCapsuleCard(c, false)).join('')}</div>`;
   }
 
   function buildCapsuleCard(c, showDelete) {
     const unlocked = isUnlocked(c);
     return `<div class="card ${unlocked ? '' : 'card-locked'}">
-      <div class="lock-icon">
-        <i class="fas fa-${unlocked ? 'lock-open' : 'lock'}" style="color:${unlocked ? 'var(--gold)' : 'var(--mid-brown)'}"></i>
-      </div>
+      <div class="lock-icon"><i class="fas fa-${unlocked ? 'lock-open' : 'lock'}" style="color:${unlocked ? 'var(--gold)' : 'var(--mid-brown)'}"></i></div>
       <div class="card-title">${c.title}</div>
       <div class="card-subtitle">Created ${timeAgo(c.createdAt)} · by ${c.createdBy}</div>
-      ${unlocked
-        ? `<div class="card-body">${c.message.substring(0, 120)}${c.message.length > 120 ? '...' : ''}</div>`
-        : `<div class="countdown-badge"><i class="fas fa-hourglass-half"></i> ${formatUnlockDate(c.unlockDate)}</div>`
-      }
+      ${unlocked ? `<div class="card-body">${c.message.substring(0,120)}${c.message.length>120?'...':''}</div>` : `<div class="countdown-badge"><i class="fas fa-hourglass-half"></i> ${formatUnlockDate(c.unlockDate)}</div>`}
       <div class="card-footer">
-        <span class="privacy-badge ${c.privacy}">
-          <i class="fas fa-${c.privacy === 'public' ? 'globe' : 'lock'}"></i> ${c.privacy}
-        </span>
-        ${unlocked
-          ? `<button class="btn-sm gold" onclick="openCapsule('${c.id}')"><i class="fas fa-envelope-open"></i> Open</button>`
-          : `<span style="font-size:0.75rem;color:var(--mid-brown)">${new Date(c.unlockDate).toLocaleDateString('en-US', {year:'numeric',month:'short',day:'numeric'})}</span>`
-        }
+        <span class="privacy-badge ${c.privacy}"><i class="fas fa-${c.privacy==='public'?'globe':'lock'}"></i> ${c.privacy}</span>
+        ${unlocked ? `<button class="btn-sm gold" onclick="openCapsule('${c.id}')"><i class="fas fa-envelope-open"></i> Open</button>` : `<span style="font-size:0.75rem;color:var(--mid-brown)">${new Date(c.unlockDate).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})}</span>`}
         ${showDelete ? `<button class="btn-danger btn-sm" onclick="removeCapsule('${c.id}')"><i class="fas fa-trash"></i></button>` : ''}
       </div>
     </div>`;
   }
 
-  function submitCapsule() {
+  async function submitCapsule() {
     const title   = document.getElementById('cap-title').value.trim();
     const message = document.getElementById('cap-message').value.trim();
     const date    = document.getElementById('cap-date').value;
     const privacy = document.getElementById('cap-privacy').value;
-
     if (!title || !message || !date) { toast('Please fill in all fields', 'error'); return; }
-    createCapsule({ title, message, unlockDate: date, privacy });
+    await createCapsule({ title, message, unlockDate: date, privacy });
     toast('Capsule sealed! ♥ It will unlock on ' + formatDate(date), 'success');
     document.getElementById('cap-title').value = '';
     document.getElementById('cap-message').value = '';
     showView('my');
   }
 
-  function openCapsule(id) {
-    const c = getCapsules().find(x => x.id === id);
+  async function openCapsule(id) {
+    const c = _capsules.find(x => x.id === id);
     if (!c) return;
     document.getElementById('modalTitle').textContent = c.title;
     document.getElementById('modalContent').innerHTML = `
-      <div style="font-size:0.8rem;color:var(--mid-brown);margin-bottom:1rem">
-        Sealed ${formatDate(c.createdAt)} · Unlocked ${formatDate(c.unlockDate)}
-      </div>
+      <div style="font-size:0.8rem;color:var(--mid-brown);margin-bottom:1rem">Sealed ${formatDate(c.createdAt)} · Unlocked ${formatDate(c.unlockDate)}</div>
       <div class="capsule-full-msg">${c.message}</div>
       <div style="margin-top:1rem;display:flex;gap:0.75rem;align-items:center">
         <span class="privacy-badge ${c.privacy}"><i class="fas fa-${c.privacy==='public'?'globe':'lock'}"></i> ${c.privacy}</span>
         ${c.privacy === 'private'
           ? `<button class="btn-secondary" onclick="makePublic('${c.id}')"><i class="fas fa-globe"></i> Make Public</button>`
-          : `<button class="btn-outline-red" onclick="makePrivate('${c.id}')"><i class="fas fa-lock"></i> Make Private</button>`
-        }
-      </div>
-    `;
+          : `<button class="btn-outline-red" onclick="makePrivate('${c.id}')"><i class="fas fa-lock"></i> Make Private</button>`}
+      </div>`;
     document.getElementById('capsuleModal').classList.add('open');
   }
 
-  function makePublic(id) {
-    const capsules = getCapsules().map(c => c.id === id ? {...c, privacy:'public'} : c);
-    saveCapsules(capsules);
+  async function makePublic(id) {
+    await updateCapsule(id, { privacy: 'public' });
     closeModal('capsuleModal');
     toast('Capsule is now public ♥', 'success');
     renderMyCapsules();
   }
 
-  function makePrivate(id) {
-    const capsules = getCapsules().map(c => c.id === id ? {...c, privacy:'private'} : c);
-    saveCapsules(capsules);
+  async function makePrivate(id) {
+    await updateCapsule(id, { privacy: 'private' });
     closeModal('capsuleModal');
     toast('Capsule is now private', 'info');
     renderMyCapsules();
   }
 
-  function removeCapsule(id) {
+  async function removeCapsule(id) {
     if (!confirm('Delete this capsule permanently?')) return;
-    deleteCapsule(id);
+    await deleteCapsule(id);
     toast('Capsule deleted', 'info');
     renderMyCapsules();
   }
 
-  function closeModal(id) {
-    document.getElementById(id).classList.remove('open');
+  function showView(name) {
+    ['my','create','public'].forEach(v => {
+      document.getElementById('view-' + v).style.display = v === name ? 'block' : 'none';
+    });
+    document.querySelectorAll('.view-tab').forEach((t, i) => {
+      t.classList.toggle('active', ['my','create','public'][i] === name);
+    });
+    if (name === 'my') renderMyCapsules();
+    if (name === 'public') { _capsules.length ? renderPublicCapsules() : getCapsules().then(c => { _capsules = c; renderPublicCapsules(); }); }
   }
+
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+  (async () => {
+    await requireAuth();
+    renderSidebar('my-capsules');
+    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+    document.getElementById('cap-date').min = tomorrow.toISOString().split('T')[0];
+    _capsules = await getCapsules();
+    const hash = location.hash.replace('#','');
+    if (hash === 'create') showView('create');
+    else if (hash === 'public') showView('public');
+    else renderMyCapsules();
+  })();
 </script>
 </body>
 </html>

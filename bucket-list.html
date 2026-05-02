@@ -62,18 +62,24 @@
   </main>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/app.js"></script>
 <script>
-  if (!requireAuth()) void 0;
-  renderSidebar('bucket');
-
-  const categories = ['All', 'Travel', 'Romance', 'Adventure', 'Food', 'Culture', 'Goals', 'Other'];
   let activeFilter = 'All';
   let showCompleted = true;
+  const bucketCategories = ['All', 'Travel', 'Romance', 'Adventure', 'Food', 'Culture', 'Goals', 'Other'];
+
+  (async () => {
+    await requireAuth();
+    renderSidebar('bucket');
+    renderFilters();
+    await renderProgress();
+    await renderList();
+  })();
 
   function renderFilters() {
     document.getElementById('bucketFilters').innerHTML =
-      categories.map(c => `<button class="bucket-filter-btn ${activeFilter===c?'active':''}" onclick="setFilter('${c}')">${c}</button>`).join('') +
+      bucketCategories.map(c => `<button class="bucket-filter-btn ${activeFilter===c?'active':''}" onclick="setFilter('${c}')">${c}</button>`).join('') +
       `<button class="bucket-filter-btn ${showCompleted?'active':''}" onclick="toggleCompleted()" style="margin-left:0.5rem">
         <i class="fas fa-check"></i> ${showCompleted?'Hide':'Show'} Completed
       </button>`;
@@ -82,8 +88,8 @@
   function setFilter(f) { activeFilter = f; renderFilters(); renderList(); }
   function toggleCompleted() { showCompleted = !showCompleted; renderFilters(); renderList(); }
 
-  function renderProgress() {
-    const items = getBucketList();
+  async function renderProgress() {
+    const items = await getBucketList();
     const done  = items.filter(i => i.completed).length;
     const total = items.length;
     const pct   = total > 0 ? Math.round((done/total)*100) : 0;
@@ -99,8 +105,8 @@
       </div>`;
   }
 
-  function renderList() {
-    let items = getBucketList();
+  async function renderList() {
+    let items = await getBucketList();
     if (activeFilter !== 'All') items = items.filter(i => i.category === activeFilter);
     if (!showCompleted) items = items.filter(i => !i.completed);
 
@@ -127,24 +133,22 @@
       </div>`).join('');
   }
 
-  function submitBucketItem() {
+  async function submitBucketItem() {
     const title    = document.getElementById('bucket-title').value.trim();
     const category = document.getElementById('bucket-category').value;
     const note     = document.getElementById('bucket-note').value.trim();
     const date     = document.getElementById('bucket-date').value;
     if (!title) { toast('Please enter a dream to add', 'error'); return; }
-    addBucketItem({ title, category, note, targetDate: date });
+    await addBucketItem({ title, category, note, targetDate: date });
     document.getElementById('bucket-title').value = '';
     document.getElementById('bucket-note').value  = '';
     document.getElementById('bucket-date').value  = '';
-    renderProgress(); renderList();
+    await renderProgress(); await renderList();
     toast('Added to your bucket list ♥', 'success');
   }
 
-  function toggle(id) { toggleBucketItem(id); renderProgress(); renderList(); }
-  function remove(id) { deleteBucketItem(id); renderProgress(); renderList(); toast('Removed', 'info'); }
-
-  renderFilters(); renderProgress(); renderList();
+  async function toggle(id) { await toggleBucketItem(id); await renderProgress(); await renderList(); }
+  async function remove(id) { await deleteBucketItem(id); await renderProgress(); await renderList(); toast('Removed', 'info'); }
 </script>
 </body>
 </html>

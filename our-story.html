@@ -133,25 +133,13 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/app.js"></script>
 <script>
-  if (!requireAuth()) void 0;
-  renderSidebar('how-met');
-
-  const user = getUser();
-  let story = getStory();
-
-  // Init displays
-  document.getElementById('met-preview').textContent = story.howWeMet || '';
-  renderAbout();
-  renderTimeline();
-
-  const hash = location.hash.replace('#', '');
-  if (hash === 'about') showSection('about');
-  else if (hash === 'timeline') showSection('timeline');
+  let _story = { howWeMet: '', aboutPartner1: '', aboutPartner2: '', timeline: [] };
 
   function showSection(name) {
-    ['met', 'about', 'timeline'].forEach(s => {
+    ['met','about','timeline'].forEach(s => {
       document.getElementById('section-' + s).style.display = s === name ? 'block' : 'none';
     });
     document.querySelectorAll('.story-tab').forEach((t, i) => {
@@ -161,39 +149,39 @@
 
   function editSection(name) {
     if (name === 'met') {
-      document.getElementById('met-textarea').value = story.howWeMet || '';
+      document.getElementById('met-textarea').value = _story.howWeMet || '';
       document.getElementById('met-display-mode').style.display = 'none';
       document.getElementById('met-edit-mode').style.display = 'block';
     }
   }
 
   function cancelEdit(name) {
-    document.getElementById(`${name}-display-mode`).style.display = 'block';
-    document.getElementById(`${name}-edit-mode`).style.display = 'none';
+    document.getElementById(name + '-display-mode').style.display = 'block';
+    document.getElementById(name + '-edit-mode').style.display = 'none';
   }
 
-  function saveSection(name) {
+  async function saveSection(name) {
     if (name === 'met') {
-      story.howWeMet = document.getElementById('met-textarea').value.trim();
-      saveStory(story);
-      document.getElementById('met-preview').textContent = story.howWeMet;
+      _story.howWeMet = document.getElementById('met-textarea').value.trim();
+      await saveStory(_story);
+      document.getElementById('met-preview').textContent = _story.howWeMet;
       cancelEdit('met');
       toast('Story saved ♥', 'success');
     }
   }
 
   function renderAbout() {
+    const user = getUser();
     const g = document.getElementById('aboutGrid');
     g.innerHTML = `
       <div class="about-card">
         <h3><i class="fas fa-user"></i> ${user.name}</h3>
-        <div style="font-size:0.9rem;line-height:1.8;color:rgba(255,245,238,0.78);white-space:pre-wrap">${story.aboutPartner1 || '<span style="color:rgba(255,245,238,0.3);font-style:italic">Not written yet...</span>'}</div>
+        <div style="font-size:0.9rem;line-height:1.8;color:rgba(255,245,238,0.78);white-space:pre-wrap">${_story.aboutPartner1 || '<span style="color:rgba(255,245,238,0.3);font-style:italic">Not written yet...</span>'}</div>
       </div>
       <div class="about-card">
         <h3><i class="fas fa-heart"></i> ${user.spouseName}</h3>
-        <div style="font-size:0.9rem;line-height:1.8;color:rgba(255,245,238,0.78);white-space:pre-wrap">${story.aboutPartner2 || '<span style="color:rgba(255,245,238,0.3);font-style:italic">Not written yet...</span>'}</div>
-      </div>
-    `;
+        <div style="font-size:0.9rem;line-height:1.8;color:rgba(255,245,238,0.78);white-space:pre-wrap">${_story.aboutPartner2 || '<span style="color:rgba(255,245,238,0.3);font-style:italic">Not written yet...</span>'}</div>
+      </div>`;
     const editBtn = document.createElement('button');
     editBtn.className = 'edit-btn';
     editBtn.innerHTML = '<i class="fas fa-pen"></i> Edit About Us';
@@ -202,10 +190,11 @@
   }
 
   function showAboutEdit() {
+    const user = getUser();
     document.getElementById('about-label-1').textContent = user.name;
     document.getElementById('about-label-2').textContent = user.spouseName;
-    document.getElementById('about-p1').value = story.aboutPartner1 || '';
-    document.getElementById('about-p2').value = story.aboutPartner2 || '';
+    document.getElementById('about-p1').value = _story.aboutPartner1 || '';
+    document.getElementById('about-p2').value = _story.aboutPartner2 || '';
     document.getElementById('about-edit-mode').style.display = 'block';
     document.getElementById('aboutGrid').style.display = 'none';
     document.querySelector('#section-about .edit-btn').style.display = 'none';
@@ -217,24 +206,20 @@
     document.querySelector('#section-about .edit-btn').style.display = 'inline-flex';
   }
 
-  function saveAbout() {
-    story.aboutPartner1 = document.getElementById('about-p1').value.trim();
-    story.aboutPartner2 = document.getElementById('about-p2').value.trim();
-    saveStory(story);
+  async function saveAbout() {
+    _story.aboutPartner1 = document.getElementById('about-p1').value.trim();
+    _story.aboutPartner2 = document.getElementById('about-p2').value.trim();
+    await saveStory(_story);
     renderAbout();
     cancelAbout();
     toast('About Us saved ♥', 'success');
   }
 
   function renderTimeline() {
-    const entries = (story.timeline || []).sort((a,b) => new Date(a.date) - new Date(b.date));
+    const entries = (_story.timeline || []).slice().sort((a,b) => new Date(a.date) - new Date(b.date));
     const el = document.getElementById('timelineList');
     if (entries.length === 0) {
-      el.innerHTML = `<div class="empty-state" style="padding:2rem">
-        <div class="empty-icon"><i class="fas fa-history"></i></div>
-        <h3>No milestones yet</h3>
-        <p>Add your first beautiful memory to the timeline</p>
-      </div>`;
+      el.innerHTML = `<div class="empty-state" style="padding:2rem"><div class="empty-icon"><i class="fas fa-history"></i></div><h3>No milestones yet</h3><p>Add your first beautiful memory to the timeline</p></div>`;
       return;
     }
     el.innerHTML = `<div class="timeline">
@@ -242,27 +227,20 @@
         <div class="timeline-item">
           <div class="timeline-dot"></div>
           <div class="timeline-date">${formatDate(e.date)}</div>
-          <div class="timeline-content">
-            <h4>${e.title}</h4>
-            <p>${e.desc}</p>
-          </div>
-          <button class="btn-danger btn-sm" style="margin-top:0.5rem" onclick="removeTimelineEntry(${i})">
-            <i class="fas fa-trash"></i>
-          </button>
-        </div>
-      `).join('')}
+          <div class="timeline-content"><h4>${e.title}</h4><p>${e.desc}</p></div>
+          <button class="btn-danger btn-sm" style="margin-top:0.5rem" onclick="removeTimelineEntry(${i})"><i class="fas fa-trash"></i></button>
+        </div>`).join('')}
     </div>`;
   }
 
-  function addTimelineEntry() {
+  async function addTimelineEntry() {
     const date  = document.getElementById('tl-date').value;
     const title = document.getElementById('tl-title').value.trim();
     const desc  = document.getElementById('tl-desc').value.trim();
     if (!date || !title) { toast('Please fill in the date and title', 'error'); return; }
-    story = getStory();
-    if (!story.timeline) story.timeline = [];
-    story.timeline.push({ date, title, desc });
-    saveStory(story);
+    if (!_story.timeline) _story.timeline = [];
+    _story.timeline.push({ date, title, desc });
+    await saveStory(_story);
     document.getElementById('timelineModal').classList.remove('open');
     document.getElementById('tl-date').value = '';
     document.getElementById('tl-title').value = '';
@@ -271,12 +249,24 @@
     toast('Milestone added ♥', 'success');
   }
 
-  function removeTimelineEntry(index) {
+  async function removeTimelineEntry(index) {
     if (!confirm('Remove this milestone?')) return;
-    story.timeline.splice(index, 1);
-    saveStory(story);
+    _story.timeline.splice(index, 1);
+    await saveStory(_story);
     renderTimeline();
   }
+
+  (async () => {
+    await requireAuth();
+    renderSidebar('how-met');
+    _story = await getStory();
+    document.getElementById('met-preview').textContent = _story.howWeMet || '';
+    renderAbout();
+    renderTimeline();
+    const hash = location.hash.replace('#','');
+    if (hash === 'about') showSection('about');
+    else if (hash === 'timeline') showSection('timeline');
+  })();
 </script>
 </body>
 </html>

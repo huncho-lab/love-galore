@@ -212,129 +212,59 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/app.js"></script>
 <script>
-  if (!requireAuth()) void 0;
-  renderSidebar('gallery');
-
-  // ─── Storage: each photo stored under its own key to avoid quota issues ───
-  const GALLERY_INDEX = 'lg_gallery_index';
-
-  function getPhotoIndex() {
-    try { return JSON.parse(localStorage.getItem(GALLERY_INDEX)) || []; } catch { return []; }
-  }
-
-  function savePhotoIndex(ids) {
-    try { localStorage.setItem(GALLERY_INDEX, JSON.stringify(ids)); } catch(e) { console.warn(e); }
-  }
-
-  function getPhoto(id) {
-    try { return JSON.parse(localStorage.getItem('lg_photo_' + id)); } catch { return null; }
-  }
-
-  function getAllPhotos() {
-    return getPhotoIndex().map(id => getPhoto(id)).filter(Boolean);
-  }
-
-  function storePhoto(src, caption) {
-    const user = getUser();
-    const photo = {
-      id: Date.now().toString() + '_' + Math.random().toString(36).slice(2,6),
-      src, caption,
-      uploadedAt: new Date().toISOString(),
-      uploadedBy: user ? user.name : 'Unknown',
-    };
-    // Save photo data separately
-    localStorage.setItem('lg_photo_' + photo.id, JSON.stringify(photo));
-    // Add id to index
-    const ids = getPhotoIndex();
-    ids.unshift(photo.id);
-    savePhotoIndex(ids);
-    return photo;
-  }
-
-  function removePhoto(id) {
-    localStorage.removeItem('lg_photo_' + id);
-    savePhotoIndex(getPhotoIndex().filter(x => x !== id));
-    renderGallery();
-    toast('Photo removed', 'info');
-  }
-
-  function updateCaption(id, caption) {
-    const photo = getPhoto(id);
-    if (!photo) return;
-    photo.caption = caption;
-    localStorage.setItem('lg_photo_' + id, JSON.stringify(photo));
-  }
+  let currentPhotos = [];
+  let lightboxIdx = 0;
+  let editingId = null;
 
   // ─── Upload ───────────────────────────────────────────────────────────────
   const zone = document.getElementById('uploadZone');
   zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
   zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
-  zone.addEventListener('drop', e => {
-    e.preventDefault(); zone.classList.remove('drag-over');
-    handleFiles(e.dataTransfer.files);
-  });
+  zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('drag-over'); handleFiles(e.dataTransfer.files); });
 
   async function handleFiles(fileList) {
     if (!fileList || fileList.length === 0) return;
     const files = Array.from(fileList).filter(f => f.type.startsWith('image/'));
     if (files.length === 0) { toast('Please select image files only', 'error'); return; }
-
-    const progressEl  = document.getElementById('uploadProgress');
-    const fill        = document.getElementById('progressFill');
-    const pctEl       = document.getElementById('progressPct');
-    const labelEl     = document.getElementById('progressLabel');
-
+    const progressEl = document.getElementById('uploadProgress');
+    const fill = document.getElementById('progressFill');
+    const pctEl = document.getElementById('progressPct');
+    const labelEl = document.getElementById('progressLabel');
     progressEl.style.display = 'block';
-    labelEl.textContent = `Uploading ${files.length} photo${files.length > 1 ? 's' : ''}…`;
-
+    labelEl.textContent = `Uploading ${files.length} photo${files.length > 1 ? 's' : ''}...`;
     let uploaded = 0;
     for (let i = 0; i < files.length; i++) {
       try {
         const compressed = await compressImage(files[i], 900, 0.65);
-        storePhoto(compressed, '');
+        await addPhoto(compressed, '');
         uploaded++;
       } catch (err) {
-        if (err && err.name === 'QuotaExceededError') {
-          toast('Storage full — clear some photos to upload more', 'error', 5000);
-          break;
-        }
         toast(`Could not process "${files[i].name}"`, 'error');
       }
       const pct = Math.round(((i + 1) / files.length) * 100);
       fill.style.width = pct + '%';
       pctEl.textContent = pct + '%';
     }
-
     await new Promise(r => setTimeout(r, 700));
     progressEl.style.display = 'none';
     fill.style.width = '0%';
     document.getElementById('fileInput').value = '';
-
-    if (uploaded > 0) {
-      toast(`${uploaded} photo${uploaded > 1 ? 's' : ''} added ♥`, 'success');
-      renderGallery();
-    }
+    if (uploaded > 0) { toast(`${uploaded} photo${uploaded > 1 ? 's' : ''} added ♥`, 'success'); renderGallery(); }
   }
 
   // ─── Render ───────────────────────────────────────────────────────────────
-  let currentPhotos = [];
-  let lightboxIdx = 0;
-
-  function renderGallery() {
-    let photos = getAllPhotos();
+  async function renderGallery() {
+    let photos = await getGallery();
     if (document.getElementById('sortSelect').value === 'oldest') photos = [...photos].reverse();
     currentPhotos = photos;
-
     const grid  = document.getElementById('galleryGrid');
     const empty = document.getElementById('galleryEmpty');
-    document.getElementById('galleryCount').textContent =
-      photos.length > 0 ? `${photos.length} photo${photos.length !== 1 ? 's' : ''}` : '';
-
+    document.getElementById('galleryCount').textContent = photos.length > 0 ? `${photos.length} photo${photos.length !== 1 ? 's' : ''}` : '';
     if (photos.length === 0) { grid.innerHTML = ''; empty.style.display = 'block'; return; }
     empty.style.display = 'none';
-
     grid.innerHTML = photos.map((p, i) => `
       <div class="gallery-item" onclick="openLightbox(${i})">
         <img src="${p.src}" alt="gallery photo" loading="lazy">
@@ -343,32 +273,21 @@
           <div class="item-meta">${formatDate(p.uploadedAt)} · ${p.uploadedBy}</div>
         </div>
         <div class="item-actions">
-          <button class="act-btn act-edit" title="Edit caption"
-            onclick="event.stopPropagation();openCaptionModal('${p.id}')">
-            <i class="fas fa-pen"></i>
-          </button>
-          <button class="act-btn act-del" title="Delete"
-            onclick="event.stopPropagation();removePhoto('${p.id}')">
-            <i class="fas fa-trash"></i>
-          </button>
+          <button class="act-btn act-edit" title="Edit caption" onclick="event.stopPropagation();openCaptionModal('${p.id}')"><i class="fas fa-pen"></i></button>
+          <button class="act-btn act-del" title="Delete" onclick="event.stopPropagation();removePhoto('${p.id}')"><i class="fas fa-trash"></i></button>
         </div>
-      </div>
-    `).join('');
+      </div>`).join('');
+  }
+
+  async function removePhoto(id) {
+    await deletePhoto(id);
+    toast('Photo removed', 'info');
+    renderGallery();
   }
 
   // ─── Lightbox ─────────────────────────────────────────────────────────────
-  function openLightbox(i) {
-    lightboxIdx = i;
-    refreshLightbox();
-    document.getElementById('lightbox').classList.add('open');
-    document.body.style.overflow = 'hidden';
-  }
-
-  function closeLightbox() {
-    document.getElementById('lightbox').classList.remove('open');
-    document.body.style.overflow = '';
-  }
-
+  function openLightbox(i) { lightboxIdx = i; refreshLightbox(); document.getElementById('lightbox').classList.add('open'); document.body.style.overflow = 'hidden'; }
+  function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); document.body.style.overflow = ''; }
   function refreshLightbox() {
     const p = currentPhotos[lightboxIdx];
     if (!p) return;
@@ -378,49 +297,36 @@
     document.getElementById('lbPrev').style.visibility = lightboxIdx === 0 ? 'hidden' : 'visible';
     document.getElementById('lbNext').style.visibility = lightboxIdx === currentPhotos.length - 1 ? 'hidden' : 'visible';
   }
-
-  function lightboxStep(dir) {
-    const next = lightboxIdx + dir;
-    if (next < 0 || next >= currentPhotos.length) return;
-    lightboxIdx = next;
-    refreshLightbox();
-  }
-
-  document.getElementById('lightbox').addEventListener('click', function(e) {
-    if (e.target === this) closeLightbox();
-  });
-
+  function lightboxStep(dir) { const n = lightboxIdx + dir; if (n < 0 || n >= currentPhotos.length) return; lightboxIdx = n; refreshLightbox(); }
+  document.getElementById('lightbox').addEventListener('click', function(e) { if (e.target === this) closeLightbox(); });
   document.addEventListener('keydown', e => {
     if (!document.getElementById('lightbox').classList.contains('open')) return;
-    if (e.key === 'ArrowLeft')  lightboxStep(-1);
+    if (e.key === 'ArrowLeft') lightboxStep(-1);
     if (e.key === 'ArrowRight') lightboxStep(1);
-    if (e.key === 'Escape')     closeLightbox();
+    if (e.key === 'Escape') closeLightbox();
   });
 
   // ─── Caption modal ────────────────────────────────────────────────────────
-  let editingId = null;
-
   function openCaptionModal(id) {
     editingId = id;
-    const p = getPhoto(id);
+    const p = currentPhotos.find(x => x.id === id);
     document.getElementById('captionInput').value = p ? p.caption : '';
     document.getElementById('captionModal').classList.add('open');
   }
-
-  function closeCaptionModal() {
-    document.getElementById('captionModal').classList.remove('open');
-    editingId = null;
-  }
-
-  function saveCaptionEdit() {
+  function closeCaptionModal() { document.getElementById('captionModal').classList.remove('open'); editingId = null; }
+  async function saveCaptionEdit() {
     if (!editingId) return;
-    updateCaption(editingId, document.getElementById('captionInput').value.trim());
+    await updateCaption(editingId, document.getElementById('captionInput').value.trim());
     closeCaptionModal();
     renderGallery();
     toast('Caption saved ♥', 'success');
   }
 
-  renderGallery();
+  (async () => {
+    await requireAuth();
+    renderSidebar('gallery');
+    renderGallery();
+  })();
 </script>
 </body>
 </html>

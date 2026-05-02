@@ -87,52 +87,24 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/app.js"></script>
 <script>
-  if (!requireAuth()) void 0;
-  renderSidebar('letters-inbox');
+  let _letters = [];
 
-  const user = getUser();
-
-  // Populate "To" dropdown
-  const toSel = document.getElementById('letter-to');
-  [user.name, user.spouseName].forEach(n => {
-    const o = document.createElement('option'); o.value = n; o.textContent = n; toSel.appendChild(o);
-  });
-
-  // Set min unlock date
-  const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
-  document.getElementById('letter-unlock').min = tomorrow.toISOString().split('T')[0];
-
-  // Hash routing
-  const hash = location.hash.replace('#', '');
-  if (hash === 'write')  showTab('write');
-  else if (hash === 'sent')  showTab('sent');
-  else { renderInbox(); }
-
-  function showTab(name) {
-    ['inbox','write','sent','locked'].forEach(t => {
-      document.getElementById('tab-' + t).style.display = t === name ? 'block' : 'none';
-    });
-    document.querySelectorAll('.letter-tab').forEach((b, i) => {
-      b.classList.toggle('active', ['inbox','write','sent','locked'][i] === name);
-    });
-    if (name === 'inbox')  renderInbox();
-    if (name === 'sent')   renderSent();
-    if (name === 'locked') renderLocked();
+  async function renderInbox() {
+    _letters = await getLetters();
+    const user = getUser();
+    renderLetterList('inboxList', _letters.filter(l => l.to === user.name && isLetterUnlocked(l)), 'inbox');
   }
-
-  function renderInbox() {
-    const letters = getLetters().filter(l => l.to === user.name && isLetterUnlocked(l));
-    renderLetterList('inboxList', letters, 'inbox');
+  async function renderSent() {
+    _letters = await getLetters();
+    const user = getUser();
+    renderLetterList('sentList', _letters.filter(l => l.from === user.name && isLetterUnlocked(l)), 'sent');
   }
-  function renderSent() {
-    const letters = getLetters().filter(l => l.from === user.name && isLetterUnlocked(l));
-    renderLetterList('sentList', letters, 'sent');
-  }
-  function renderLocked() {
-    const letters = getLetters().filter(l => !isLetterUnlocked(l));
-    renderLetterList('lockedList', letters, 'locked');
+  async function renderLocked() {
+    _letters = await getLetters();
+    renderLetterList('lockedList', _letters.filter(l => !isLetterUnlocked(l)), 'locked');
   }
 
   function renderLetterList(elId, letters, mode) {
@@ -166,7 +138,7 @@
   }
 
   function openLetter(id) {
-    const l = getLetters().find(x => x.id === id);
+    const l = _letters.find(x => x.id === id);
     if (!l) return;
     document.getElementById('letterModalTitle').textContent = l.subject || '(No subject)';
     document.getElementById('letterModalBody').innerHTML = `
@@ -175,25 +147,54 @@
     document.getElementById('letterModal').classList.add('open');
   }
 
-  function submitLetter() {
+  async function submitLetter() {
     const to      = document.getElementById('letter-to').value;
     const subject = document.getElementById('letter-subject').value.trim();
     const body    = document.getElementById('letter-body').value.trim();
     const unlock  = document.getElementById('letter-unlock').value;
     const privacy = document.getElementById('letter-privacy').value;
     if (!subject || !body || !unlock) { toast('Please fill in all fields', 'error'); return; }
-    createLetter({ to, subject, body, unlockDate: unlock, privacy });
+    await createLetter({ to, subject, body, unlockDate: unlock, privacy });
     toast(`Letter to ${to} sealed ♥ Unlocks ${formatDate(unlock)}`, 'success', 4000);
     document.getElementById('letter-subject').value = '';
-    document.getElementById('letter-body').value    = '';
+    document.getElementById('letter-body').value = '';
     showTab('sent');
   }
 
-  function removeLetter(id) {
+  async function removeLetter(id) {
     if (!confirm('Delete this letter?')) return;
-    deleteLetter(id); toast('Deleted', 'info');
+    await deleteLetter(id);
+    toast('Deleted', 'info');
     showTab('inbox');
   }
+
+  function showTab(name) {
+    ['inbox','write','sent','locked'].forEach(t => {
+      document.getElementById('tab-' + t).style.display = t === name ? 'block' : 'none';
+    });
+    document.querySelectorAll('.letter-tab').forEach((b, i) => {
+      b.classList.toggle('active', ['inbox','write','sent','locked'][i] === name);
+    });
+    if (name === 'inbox')  renderInbox();
+    if (name === 'sent')   renderSent();
+    if (name === 'locked') renderLocked();
+  }
+
+  (async () => {
+    await requireAuth();
+    renderSidebar('letters-inbox');
+    const user = getUser();
+    const toSel = document.getElementById('letter-to');
+    [user.name, user.spouseName].forEach(n => {
+      const o = document.createElement('option'); o.value = n; o.textContent = n; toSel.appendChild(o);
+    });
+    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+    document.getElementById('letter-unlock').min = tomorrow.toISOString().split('T')[0];
+    const hash = location.hash.replace('#','');
+    if (hash === 'write') showTab('write');
+    else if (hash === 'sent') showTab('sent');
+    else renderInbox();
+  })();
 </script>
 </body>
 </html>
